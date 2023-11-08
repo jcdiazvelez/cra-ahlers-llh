@@ -30,6 +30,7 @@ set(LIBS ${LIBS}
 add_executable(multi-llh
             private/iter-lhreco/multi-llh.cc 
             private/iter-lhreco/pickle.cc
+            private/iter-lhreco/illh-utils.cc
             )
 
 add_executable(illh-reco

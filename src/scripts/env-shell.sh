@@ -35,10 +35,10 @@ if [ -z "$1" ]
     then # user did not specify a shell
     NEW_SHELL=$SHELL 
     # only exit if no shell specified on command line *and* env already loaded 
-    if [ -n "$I3_SHELL" ] 
+    if [ -n "$ILLH_SHELL" ] 
 	then  
 	echo "****************************************************************"
-	echo "You are currently in a shell with an Icetray environment loaded."
+	echo "You are currently in a shell with an Iter-LLH environment loaded."
 	echo "Please exit the current shell and re-run $0 from a clean shell."
 	echo "****************************************************************"
 	echo "Environment not (re)loaded."
@@ -50,25 +50,25 @@ else
     ARGV="$@"
 fi
 
-_I3_SHELL=$NEW_SHELL
+_ILLH_SHELL=$NEW_SHELL
 
-_I3_SRC=/data/user/juancarlos/simpledst-maps/src
-_I3_BUILD=/data/user/juancarlos/simpledst-maps/build
-# If the I3_TESTDATA value at cmake time differs from the value
+_ILLH_SRC=/data/user/juancarlos/simpledst-maps/src
+_ILLH_BUILD=/data/user/juancarlos/simpledst-maps/build
+# If the ILLH_TESTDATA value at cmake time differs from the value
 # that was set just prior to starting env-shell.sh, prefer the latter one.
-# E.g.: user may have had both I3_PORTS and I3_TESTDATA undefined at cmake time,
-# but then set I3_TESTDATA later.
+# E.g.: user may have had both ILLH_PORTS and ILLH_TESTDATA undefined at cmake time,
+# but then set ILLH_TESTDATA later.
 _PYVER=`python -V 2>&1`
 
-# Check for I3_BUILD mismatch
-if [ -n "$I3_BUILD" -a "$I3_BUILD" != "$_I3_BUILD" ]
+# Check for ILLH_BUILD mismatch
+if [ -n "$ILLH_BUILD" -a "$ILLH_BUILD" != "$_ILLH_BUILD" ]
 then
     echo "****************************************************************"
-    echo "I3_BUILD CHANGED"
+    echo "ILLH_BUILD CHANGED"
     echo "It appears that you are attempting to load an icetray environment different"
     echo "than the one already loaded"
-    echo "          This I3_BUILD=$_I3_BUILD"
-    echo "Already loaded I3_BUILD=$I3_BUILD"
+    echo "          This ILLH_BUILD=$_ILLH_BUILD"
+    echo "Already loaded ILLH_BUILD=$ILLH_BUILD"
     echo "****************************************************************"
     echo "Environment not (re)loaded."
     exit 2
@@ -84,7 +84,7 @@ fi
 
 _LD_LIBRARY_PATH=/data/user/juancarlos/Healpix/install/lib:$LD_LIBRARY_PATH:$LD_LIBRARY_PATH
 _DYLD_LIBRARY_PATH=/data/user/juancarlos/Healpix/install/lib:$DYLD_LIBRARY_PATH:$LD_LIBRARY_PATH
-_PATH=${_I3_BUILD}:${_ROOTSYS}/bin:$PATH
+_PATH=${_ILLH_BUILD}:${_ROOTSYS}/bin:$PATH
 
 
 
@@ -114,12 +114,12 @@ if [ -z "$ARGV" ]
     printf "$TOPBAR\n"
     printf "\n"
     printf "Icetray environment has:\n"
-    printf "   I3_SRC       = %s\n" $_I3_SRC
-    printf "   I3_BUILD     = %s\n" $_I3_BUILD
+    printf "   ILLH_SRC       = %s\n" $_ILLH_SRC
+    printf "   ILLH_BUILD     = %s\n" $_ILLH_BUILD
     echo   "   Python       =" $_PYVER
 fi
 
-if [ -z "$I3_SHELL" ] # a clean, first invocation
+if [ -z "$ILLH_SHELL" ] # a clean, first invocation
     then
 
     # GEANT4_ENV_VARS pulls in GEANT4 variables,
@@ -129,14 +129,14 @@ if [ -z "$I3_SHELL" ] # a clean, first invocation
 	LD_LIBRARY_PATH=$_LD_LIBRARY_PATH \
 	DYLD_LIBRARY_PATH=$_DYLD_LIBRARY_PATH \
 	PYTHONPATH=$_PYTHONPATH \
-	ICETRAY_CLASSPATH=$_ICETRAY_CLASSPATH \
-        I3_PLATFORM="" \
-	I3_SRC=$_I3_SRC \
-	I3_BUILD=$_I3_BUILD \
-	I3_PORTS=$_I3_PORTS \
-	I3_TESTDATA=$_I3_TESTDATA \
+	IH_CLASSPATH=$_IH_CLASSPATH \
+        ILLH_PLATFORM="" \
+	ILLH_SRC=$_ILLH_SRC \
+	ILLH_BUILD=$_ILLH_BUILD \
+	ILLH_PORTS=$_ILLH_PORTS \
+	ILLH_TESTDATA=$_ILLH_TESTDATA \
 	ROOTSYS=$_ROOTSYS \
-	I3_SHELL=$_I3_SHELL \
+	ILLH_SHELL=$_ILLH_SHELL \
 	$NEW_SHELL "$@"
 
 else  # not clean, use previous environment
@@ -147,6 +147,6 @@ STATUS=$?
 
 if [ -z "$ARGV" ]
 then
-    echo "Exited Icetray Environment."
+    echo "Exited ILLH Environment."
 fi
 exit $STATUS

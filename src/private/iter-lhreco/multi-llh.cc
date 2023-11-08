@@ -8,6 +8,9 @@
  * @author Juan Carlos Diaz-Velez <juan.diazvelez@alumnos.udg.mx>
  *
 */
+
+#include <iter-lhreco-proj/illh-utils.h>
+
 #ifdef ICECUBE
 #include <healpix-cxx/healpix/alm.h>
 #include <healpix-cxx/cxxsupport/xcomplex.h>
@@ -45,6 +48,9 @@
 #include <boost/random/uniform_int.hpp> 
 #include <boost/random/uniform_smallint.hpp> 
 
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
 
 #include <memory>
 #include <sstream>
@@ -55,7 +61,7 @@
 #include <iterator>
 #include <vector>
 
-#include <lhreco-proj/pickle.h>
+#include <iter-lhreco-proj/pickle.h>
 
 
 #ifdef HAWCNEST
@@ -74,6 +80,8 @@ namespace po = boost::program_options;
 
 
 namespace fs = boost::filesystem; 
+namespace pt = boost::property_tree;
+
 using namespace std;
 using namespace boost::numeric::ublas;
 using namespace boost::random; 
@@ -82,21 +90,6 @@ using boost::format;
 typedef Healpix_Map<double> SkyMap; 
 typedef boost::shared_ptr<SkyMap> SkyMapPtr; // Map shared pointer
 
-
-/*
- * Sum over all pixels
- *
- */
-double 
-Sum(const SkyMap& map,unsigned int npix) 
-{
-    double sumval = 0.;
-    for (unsigned int i=0; i < npix; i++) 
-    {
-         sumval += map[i];
-    }
-    return sumval;
-}
 
 
 #if __cplusplus > 199711L
@@ -174,133 +167,6 @@ void isotropic(std::vector<SkyMapPtr>& Nmap, boost::mt19937 rng)
 
 
 
-/*
- * loadMap - read local maps and generate vector of maps bined in 
- * siderial time steps
- */
-void loadMap(
-    std::vector<SkyMapPtr>& Nmap,
-    unsigned timeidxMin,
-    unsigned timeidxMax, 
-    unsigned nTimesteps, 
-    unsigned nsideIn, 
-    unsigned nsideOut, 
-    std::string prefix,
-    std::string suffix )
-{
-    fitshandle handle;
-    std::string cuts;
-    std::string coords;
-    std::string timesys;
-    double startMJD = -1.;
-    double stopMJD = -1.;
-    double totDur = 0.;
-    double nEventsFio = 0.;
-    int nTimeBins = -1;
-
-
-
-    // Iterate over time bins and read local maps
-    for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
-    {
-        //double nEvents = 0.0; 
-
-        // Read header info and then map
-        std::stringstream input;
-        input << prefix; 
-        input << setfill('0')<<setw(3)<<timeidx;
-        input << suffix;
-        log_info("reading file : " << input.str() );
-        handle.open(input.str().c_str());
-
-        std::string cutsTemp = "";
-        if (handle.key_present("CUTS")){
-          handle.get_key("CUTS", cutsTemp);
-        }
-        string coordsTemp = "";  
-        if (handle.key_present("COORDS")){
-          handle.get_key("COORDS", coordsTemp);
-        }
-        double nEventsTemp = 0;
-        if (handle.key_present("NEVENTS")){
-          handle.get_key("NEVENTS",  nEventsTemp);
-        }
-        double startMJDTemp = 0;
-        if (handle.key_present("STARTMJD")){
-          handle.get_key("STARTMJD", startMJDTemp);
-        }
-        double stopMJDTemp = 0;
-        if (handle.key_present("STOPMJD")){
-          handle.get_key("STOPMJD", stopMJDTemp);
-        }
-        double totDurTemp = 0;
-        if (handle.key_present("TOTDUR")){
-          handle.get_key("TOTDUR",   totDurTemp);
-        }
-        std::string timesysTemp = "";
-        if (handle.key_present("TIMESYS")){
-          handle.get_key("TIMESYS", timesysTemp);
-        }
-        int bin = -1;
-        if (handle.key_present("TIMEBIN")){
-            handle.get_key("TIMEBIN",   bin);
-        }
-        int nTimeBinsTemp = -1;
-        if (handle.key_present("NBINS")) {
-            handle.get_key("NBINS",  nTimeBinsTemp);
-        }
-
-        handle.goto_hdu(2);
-        SkyMapPtr locMap(new SkyMap);
-        read_Healpix_map_from_fits(handle, *locMap, 1);
-        handle.close();
-
-        if (timeidx == timeidxMin) {
-            nsideIn = locMap->Nside();
-            log_info("Old Nside: " << nsideIn << ", New Nside: " << nsideOut);
-            cuts = cutsTemp;
-            coords = coordsTemp;
-            timesys = timesysTemp;
-            startMJD = startMJDTemp;
-            stopMJD = stopMJDTemp;
-            nTimeBins = nTimeBinsTemp;
-        }
-
-        totDur += totDurTemp;
-        nEventsFio += nEventsTemp;
-
-        if (cuts != cutsTemp) {
-            log_fatal("Cuts are different");
-        }
-        if (coords != coordsTemp && !coordsTemp.empty()) {
-            log_fatal("Coordinate systems are different");
-        }
-        if (timesys != timesysTemp && !timesysTemp.empty()) {
-            log_fatal("Time systems are different");
-        }
-        if (nTimeBins != nTimeBinsTemp) {
-            log_fatal("Number of time bins are different");
-        }
-        if (bin != timeidx && bin > 0) {
-            log_fatal("Time Bin ID does not match Time Index of Loop. Maps may be out of order.");
-        }
-
-        if ( nsideIn != nsideOut) {
-            SkyMapPtr locMapDegr(new SkyMap); 
-            locMapDegr->SetNside(nsideOut, RING);     
-            locMapDegr->fill(0.);
-            for (int i = 0; i < 12*nsideIn*nsideIn; i++){
-                pointing pt        = locMap->pix2ang(i);
-                int j              = locMapDegr->ang2pix(pt);
-                (*locMapDegr)[j] += (*locMap)[i];
-            }
-            Nmap.push_back(locMapDegr);
-        } else {
-            Nmap.push_back(locMap);
-        }
-    }
-
-}
 
 /*
  * save_iter - save results of iteration to FITS file
@@ -335,129 +201,66 @@ void save_iter(
     fitsOut.close();
 }
 
-/*
- * Rotate from local detector coordinates to J2000 Equatorial reference frame
- * @param: i - pixel in Healpix map
- * @param: timeidx - time bin
- * @param: lat - detector latitude
- * @param: lon - detector longitude
- * @param: nTimesteps - number of time bins
- * @param: CRmap - healpix map (class needed to convert between directions and pixels
- * 
- * @return rotated pixel id
- */
-unsigned 
-loc2eq_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap)
-{ 
-        vec3 v =  CRmap.pix2vec(i); 
-        double clat = cos(lat); 
-        double slat = sin(lat);
-        double beta = timeidx/(1.*nTimesteps)*M_PI*2 + lon; 
-        double cb = cos(beta); 
-        double sb = sin(beta);
-        
-        // rotation matrix
-        matrix<double> rot (3, 3);
-
-        rot(0,0) = cb*slat;
-        rot(0,1) = sb*slat;
-        rot(0,2) = -clat;
-
-        rot(1,0) = -sb;
-        rot(1,1) = cb;
-        rot(1,2) = 0;
-
-        rot(2,0) = cb*clat;
-        rot(2,1) = clat*sb;
-        rot(2,2) = slat;
 
 
-        // rotation from local frame to Equatorial (ra,dec)
-        vec3 vp;
-        vp.x = rot(0,0)*v.x+rot(0,1)*v.y+rot(0,2)*v.z;
-        vp.y = rot(1,0)*v.x+rot(1,1)*v.y+rot(1,2)*v.z;
-        vp.z = rot(2,0)*v.x+rot(2,1)*v.y+rot(2,2)*v.z;
-        
-        return CRmap.vec2pix(vp); // local pixel
-}
+class Detector {
+  public:         
+    std::string name; 
+    unsigned int nside; 
+    double longitude; 
+    double latitude; 
+    double thetamax; 
 
-/*
- * Rotate from J2000 Equatorial reference frame to local detector coordinates 
- * @param: i - pixel in Healpix map
- * @param: timeidx - time bin
- * @param: lat - detector latitude
- * @param: lon - detector longitude
- * @param: nTimesteps - number of time bins
- * @param: CRmap - healpix map (class needed to convert between directions and pixels
- * 
- * @return rotated pixel id
- */
-unsigned 
-eq2loc_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap)
-{ 
+    double totsector;
 
-        vec3 v =  CRmap.pix2vec(i); 
-        double clat = cos(lat); 
-        double slat = sin(lat);
-        double beta = timeidx/(1.*nTimesteps)*M_PI*2 + lon; 
-        double cb = cos(beta); 
-        double sb = sin(beta);
-        
-        // rotation matrix
-        matrix<double> rot (3, 3);
+    std::string prefix;
+    std::string suffix;
 
-        rot(0,0) = cb*slat;
-        rot(0,1) = sb*slat;
-        rot(0,2) = -clat;
+    std::vector<SkyMapPtr> Nmap;
 
-        rot(1,0) = -sb;
-        rot(1,1) = cb;
-        rot(1,2) = 0;
+    // initial exposure : A_i^(0)
+    SkyMapPtr Emap0;
 
-        rot(2,0) = cb*clat;
-        rot(2,1) = clat*sb;
-        rot(2,2) = slat;
-
-        // rotation from local frame to Equatorial (ra,dec)
-        vec3 vp;
-        vp.x = rot(0,0)*v.x+rot(1,0)*v.y+rot(2,0)*v.z;
-        vp.y = rot(0,1)*v.x+rot(1,1)*v.y+rot(2,1)*v.z;
-        vp.z = rot(0,2)*v.x+rot(1,2)*v.y+rot(2,2)*v.z;
-        
-        return CRmap.vec2pix(vp); // local pixel
-}
+    // n^th exposure : A_i^(n)
+    SkyMapPtr Emap;
 
 
+    //// window function of FOV map : F_a
+    std::vector<bool> FOV;
+
+    // initial normalization : N_tau^(0)
+    std::vector<double> norm0;
+
+    // n^th normalization : N_tau^(n)
+    std::vector<double> norm;
+};
+
+
+
+
+typedef boost::shared_ptr<Detector> DetectorPtr; // Detector shared pointer
 
 
 int main(int argc, char* argv[])
 {
     // declare all the variables
+    // Create a root
+    pt::ptree root;
+    std::vector<DetectorPtr> detectors;
+    // Load the json file in this ptree
+
     std::string foldername;
-    std::string detector1;
-    std::string detector2;
+    std::string config_path;
     unsigned int nTimesteps;
     unsigned int timeidxMin;
     unsigned int timeidxMax;
     unsigned int nIterations;
     unsigned int nSectors;
-    int nsideIn;
-    int nsideOut;
-    double lon1;
-    double lat1;
-    double lon2;
-    double lat2;
-
-    double thetamax1;
-    double thetamax2;
+    unsigned int nsideOut;
+    unsigned int npix;
     bool randfluct;
     bool iso;
     unsigned int seed;
-
-    std::string prefix1;
-    std::string prefix2;
-    std::string suffix1;
-    std::string suffix2;
 
     po::options_description desc("Options"); 
     po::variables_map vm; 
@@ -466,30 +269,19 @@ int main(int argc, char* argv[])
        // Define and parse the program options 
        desc.add_options() 
              ("help,h", "produce help message") 
-             ("prefix1", po::value<std::string>(&prefix1), "det1:prefix for input files") 
-             ("prefix2", po::value<std::string>(&prefix2), "det2:prefix for input files") 
-             ("suffix1", po::value<std::string>(&suffix1)->default_value(".fits.gz"), "det1:suffix for input files") 
-             ("suffix2", po::value<std::string>(&suffix2)->default_value(".fits.gz"), "det2:suffix for input files") 
              ("outdir,o", po::value<std::string>(&foldername)->default_value("./sample/"), "Directory of output") 
-             ("nsideout", po::value<int>(&nsideOut)->default_value(64), "Healpix Nside for output map") 
+             ("nsideout", po::value<unsigned int>(&nsideOut)->default_value(64), "Healpix Nside for output map") 
              ("timesteps", po::value<unsigned int>(&nTimesteps)->default_value(360), "Number of time steps") 
              ("timestepmin", po::value<unsigned int>(&timeidxMin)->default_value(0), "First time step to use") 
              ("timestepmax", po::value<unsigned int>(&timeidxMax)->default_value(0), "Last time step to use") 
              ("iterations", po::value<unsigned int>(&nIterations)->default_value(20), "Number of iterations") 
              ("sectors", po::value<unsigned int>(&nSectors)->default_value(1), "Number sectors") 
-             ("lon1", po::value<double>(&lon1)->default_value(-97.0), "Longitude of detector1") 
-             ("lat1", po::value<double>(&lat1)->default_value(19.0), "Latitude of detector1")
-             ("lon2", po::value<double>(&lon2)->default_value(270.0), "Longitude of detector2") 
-             ("lat2", po::value<double>(&lat2)->default_value(-90.0), "Latitude of detector2")
-             ("thetamax1", po::value<double>(&thetamax1)->default_value(57.0), "max theta detector1")
-             ("thetamax2", po::value<double>(&thetamax2)->default_value(65.0), "max theta detector2")
 #if __cplusplus > 199711L
              ("fluctuate,f", po::bool_switch(&randfluct)->default_value(false), "add random fluctuations")
              ("seed", po::value<unsigned int>(&seed)->default_value(123), "RNG seed")
              ("iso", po::bool_switch(&iso)->default_value(false), "make isotropic map")
 #endif
-			 ("detector1", po::value<string>(&detector1)->default_value("HAWC"), "Name of detector1")
-			 ("detector2", po::value<string>(&detector2)->default_value("IceCube"), "Name of detector2"); 
+			 ("config", po::value<string>(&config_path)->default_value("config.json"), "JSON config");
      
         po::store(po::command_line_parser(argc, argv).options(desc).run(), vm); 
          
@@ -501,9 +293,51 @@ int main(int argc, char* argv[])
         } 
         po::notify(vm); // throws on error, so do after help in case there are any problems
         
-        cout << prefix1 << " input files for " << detector1 << ":\n";
-        cout << prefix2 << " input files for " << detector2 << ":\n";
-     
+        pt::read_json(config_path.c_str(), root);
+        
+        // Iterator over all detectors
+
+        npix = 12*nsideOut*nsideOut; 
+
+        for (pt::ptree::value_type &detector: root.get_child("detectors"))
+        {
+            // Detector is a std::pair of a string and a child
+            // Get the label of the node 
+            // Get the content of the node
+            DetectorPtr det = DetectorPtr(new Detector); 
+            det->name = detector.first;
+            det->nside = detector.second.get<unsigned int>("nside");
+
+            // detector position
+            det->longitude = detector.second.get<double>("longitude")*M_PI/180.;
+            det->latitude = detector.second.get<double>("latitude")*M_PI/180.;
+
+            log_info("Sector  ("<<det->name<<"): Latitude=" << det->latitude*180./M_PI<< 
+                    ",  Longitude=" << det->longitude*190./M_PI);
+
+            det->thetamax = detector.second.get<double>("thetamax")*M_PI/180.;
+
+            det->prefix = detector.second.get<std::string>("prefix");
+            det->suffix = detector.second.get<std::string>("suffix");
+
+            // initial exposure : A_i^(0)
+            det->Emap0 = SkyMapPtr(new SkyMap);
+            det->Emap0->SetNside(nsideOut, RING);
+            det->Emap0->fill(0.);
+
+
+            // n^th exposure : A_i^(n)
+            det->Emap = SkyMapPtr(new SkyMap);
+            det->Emap->SetNside(nsideOut, RING);
+            det->Emap->fill(0.);
+
+            det->FOV.resize(npix, false);
+            det->norm0.resize(nTimesteps);
+            det->norm.resize(nTimesteps);
+
+            detectors.push_back(det);
+        }
+
         if (timeidxMax==0){
             timeidxMax=nTimesteps;
         }
@@ -522,42 +356,79 @@ int main(int argc, char* argv[])
     //*****************************************************************************
     ///// Initialize ///////////////////////////////////////////////////////////// 
     //*****************************************************************************
-    unsigned int npix = 12*nsideOut*nsideOut; 
 
     // Import data : n_tau_i
-    std::vector<SkyMapPtr> Nmap1;
-    std::vector<SkyMapPtr> Nmap2;
 
 
-    //*****************************************************************************
-    ////// Read input maps //////////////////////////////////////////////////////// 
-    //*****************************************************************************
-    loadMap( Nmap1, timeidxMin, timeidxMax, nTimesteps, nsideIn, nsideOut, prefix1 , suffix1);
-    loadMap( Nmap2, timeidxMin, timeidxMax, nTimesteps, nsideIn, nsideOut, prefix2 , suffix2);
+    stringstream detector_names_str;
+    std::vector<DetectorPtr>::iterator det_it;
+    double totsectors(0);
+    for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
+    {
+        DetectorPtr det = *det_it;
+        cout << det->prefix << " input files for " << det->name << ":\n";
+     
+        detector_names_str  << boost::format("%s_") % det->name;
 
-    if (randfluct && iso)
+        //*****************************************************************************
+        ////// Read input maps //////////////////////////////////////////////////////// 
+        //*****************************************************************************
+        illh::loadMap( det->Nmap, timeidxMin, timeidxMax, nTimesteps, det->nside, nsideOut, det->prefix , det->suffix);
+
+        if (randfluct && iso)
             log_fatal("ranfluct and iso are mutually exclusive!!!");
 
-    if (randfluct) 
-    { 
+        if (randfluct) 
+        { 
 #if __cplusplus > 199711L
             boost::mt19937 rng(seed);
-            fluctuate(Nmap1,rng); 
-            fluctuate(Nmap2,rng);
+            fluctuate(det->Nmap,rng); 
 #else
             log_info("isotropic function disabled");
 #endif
-    }
-    else if (iso) 
-    { 
+        }
+        else if (iso) 
+        { 
 #if __cplusplus > 199711L
             boost::mt19937 rng(seed);
-            isotropic(Nmap1,rng);
-            isotropic(Nmap2,rng);
+            isotropic(det->Nmap,rng);
 #else 
             log_info("isotropic function disabled");
 #endif
+        }
+
+        for (unsigned i=0;i<npix;++i) 
+        { 
+               det->FOV[i] = 1; 
+               pointing pt = det->Emap->pix2ang(i); 
+               if (pt.theta > det->thetamax) 
+                   det->FOV[i] = 0; 
+        } 
+        // Calculate initial exposure :	
+        det->totsector = 0; 
+        for (unsigned int i=0; i < npix;i++ ) 
+        { 
+            double nEvents = 0.0; 
+            for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
+            { 
+                nEvents    += (*det->Nmap[timeidx])[i]; 
+            } 
+            if (det->FOV[i]) { 
+                (*det->Emap0)[i] = nEvents; 
+                det->totsector += nEvents; 
+            } 
+        } 
+        for (unsigned int i=0; i < npix;i++ ) 
+        { 
+            if (det->FOV[i]) { 
+                (*det->Emap0)[i] = (*det->Emap0)[i]/det->totsector; 
+                (*det->Emap)[i] = (*det->Emap0)[i]; 
+            } 
+        } 
+        log_info("Total events ("<<det->name<<"): " << det->totsector); 
+        totsectors += det->totsector;
     }
+    log_info("Total events: " << totsectors);
 
     // output directory
     fs::path dir(foldername); 
@@ -567,18 +438,7 @@ int main(int argc, char* argv[])
                     log_info("....successfully created !");
     }
     
-    // detector position
-    lon1 = lon1/180.*M_PI;
-    lat1 = lat1/180.*M_PI;
-    log_info("Sector 1 ("<<detector1<<"): Latitude=" << lat1 << ",  Longitude=" << lon1);
 
-    lon2 = lon2/180.*M_PI;
-    lat2 = lat2/180.*M_PI;
-    log_info("Sector 2 ("<<detector2<<"): Latitude=" << lat2 << ",  Longitude=" << lon2);
-
-    thetamax1 = thetamax1/180.*M_PI;
-    thetamax2 = thetamax2/180.*M_PI;
-    
     // normalization of isotropic flux
     double isovalue = 1.0;
 
@@ -586,104 +446,21 @@ int main(int argc, char* argv[])
     SkyMap CRmap;
     CRmap.SetNside(nsideOut, RING);
     CRmap.fill( isovalue );
-                
-    // initial exposure : A_i^(0)
-    SkyMap Emap01;
-    Emap01.SetNside(nsideOut, RING);
-    Emap01.fill(0.);
 
-    SkyMap Emap02;
-    Emap02.SetNside(nsideOut, RING);
-    Emap02.fill(0.);
-
-    // n^th exposure : A_i^(n)
-    SkyMap Emap1;
-    Emap1.SetNside(nsideOut, RING);
-    Emap1.fill(0.);
-
-    SkyMap Emap2;
-    Emap2.SetNside(nsideOut, RING);
-    Emap2.fill(0.);
-
-    //// window function of FOV map : F_a
-    std::vector<bool> FOV1(npix);
-    std::vector<bool> FOV2(npix);
-
-    for (unsigned i=0;i<npix;++i) 
-    {
-		FOV1[i] = 1;
-		FOV2[i] = 1;
-        pointing pt = Emap2.pix2ang(i);
-        if (pt.theta > thetamax1)
-		   FOV1[i] = 0;
-        if (pt.theta > thetamax2)
-		   FOV2[i] = 0;
-    }
-
-
-
-    // Calculate initial exposure :	
-    double totsector1 = 0.0;
-    double totsector2 = 0.0;
-
-    for (unsigned int i=0; i < npix;i++ ) 
-    { 
-            double nEvents1 = 0.0; 
-            double nEvents2 = 0.0; 
-            for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
-            { 
-                    nEvents1    += (*Nmap1[timeidx])[i]; 
-                    nEvents2    += (*Nmap2[timeidx])[i]; 
-            } 
-            if (FOV1[i]) {
-                    Emap01[i] = nEvents1; 
-                    totsector1 += nEvents1;
-            }
-            if (FOV2[i]) {
-                    Emap02[i] = nEvents2; 
-                    totsector2 += nEvents2;
-            }
-    }
-            
-    for (unsigned int i=0; i < npix;i++ ) 
-    { 
-            if (FOV1[i]) { 
-                    Emap01[i] = Emap01[i]/totsector1; 
-                    Emap1[i] = Emap01[i]; 
-            }
-            if (FOV2[i]) { 
-                    Emap02[i] = Emap02[i]/totsector2; 
-                    Emap2[i] = Emap02[i]; 
-            }
-    }
-    log_info("Total events (det1): " << totsector1);
-    log_info("Total events (det2): " << totsector2);
-    log_info("Total events: " << totsector1+totsector2);
-
-    // initial normalization : N_tau^(0)
-    std::vector<double> norm01(nTimesteps);
-    std::vector<double> norm02(nTimesteps);
-
-    // n^th normalization : N_tau^(n)
-    std::vector<double> norm1(nTimesteps);
-    std::vector<double> norm2(nTimesteps);
-    
     for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
     { 
-             double nEvents1 = 0.0;
-             double nEvents2 = 0.0;
+        for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
+        {
+             DetectorPtr det = *det_it;
+             double nEvents = 0.0;
              for (unsigned int i=0; i < npix;i++ ) 
              { 
-                     if (FOV1[i])
-                        nEvents1 += (*Nmap1[timeidx])[i];
-                     if (FOV2[i])
-                        nEvents2 += (*Nmap2[timeidx])[i];
+                     if (det->FOV[i])
+                        nEvents += (*det->Nmap[timeidx])[i];
              } 
-             norm1[timeidx] = nEvents1/isovalue; 
-             norm01[timeidx] = norm1[timeidx]; 
-
-             norm2[timeidx] = nEvents2/isovalue; 
-             norm02[timeidx] = norm2[timeidx]; 
+             det->norm[timeidx] = nEvents/isovalue; 
+             det->norm0[timeidx] = det->norm[timeidx]; 
+        }
     }
         
     // data in equatorial coords : n_a
@@ -703,32 +480,33 @@ int main(int argc, char* argv[])
             
             for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
             { 
+                for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
+                {
+                    DetectorPtr det = *det_it;
                     int j; 
-                    j = loc2eq_idx(i, timeidx, lat1, lon1, nTimesteps, CRmap);
-                    if (Emap01[j] > 0.0 ){ 
-                            nEvents += (*Nmap1[timeidx])[j];
-                            nBkg    += norm1[timeidx]*Emap01[j]; 
+                    j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                    if ((*det->Emap0)[j] > 0.0 ){ 
+                        nEvents += (*det->Nmap[timeidx])[j];
+                        nBkg    += det->norm[timeidx]*(*det->Emap0)[j]; 
                     }
-                    j = loc2eq_idx(i, timeidx, lat2, lon2, nTimesteps, CRmap);
-                    if (Emap02[j] > 0.0 ){ 
-                            nEvents += (*Nmap2[timeidx])[j];
-                            nBkg    += norm2[timeidx]*Emap02[j]; 
-                    }
-                
+                }
             } 
             dataMap[i] = nEvents;
     } 
     
     //  write N_tau^(0), write A_i^(0)
     log_info("Writting initial exposure");
-    save_iter(foldername, norm1, Emap01, detector1, nsideOut, nTimesteps, 0);
-    save_iter(foldername, norm2, Emap02, detector2, nsideOut, nTimesteps, 0);
+    for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
+    {
+        DetectorPtr det = *det_it;
+        illh::save_iter(foldername, det->norm, *det->Emap0, det->name, nsideOut, nTimesteps, 0);
+    }
 
 
     // write n_a
     fitshandle fitsOut; 
     stringstream datamapname;
-    datamapname <<  foldername << boost::format("/data_%s-%s_%d_%d.fits.gz") % detector1 % detector2 % nsideOut % nTimesteps;
+    datamapname << foldername << boost::format("/data_%s_%d_%d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps;
     if (fs::exists(datamapname.str()) ) {
             fs::remove( datamapname.str() );
     }
@@ -752,29 +530,24 @@ int main(int argc, char* argv[])
             // calculate new CR anisotropy
             for (unsigned int i=0; i<npix;i++) 
             { 
-                    double nEvents = 0.0;
-                    double nBkg = 0.0;
-
-                    for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
-                    { 
-                            int j; 
-                            j = loc2eq_idx(i, timeidx, lat1, lon1, nTimesteps, CRmap);
-                            if (FOV1[j] && (Emap01[j] > 0.0)) { 
-                                    nEvents += (*Nmap1[timeidx])[j];
-                                    nBkg += norm1[timeidx]*Emap1[j]; 
-                            } 
-                            j = loc2eq_idx(i, timeidx, lat2, lon2, nTimesteps, CRmap);
-                            if (FOV2[j] && (Emap02[j] > 0.0)) { 
-                                    nEvents += (*Nmap2[timeidx])[j];
-                                    nBkg += norm2[timeidx]*Emap2[j]; 
+                double nEvents = 0.0; 
+                double nBkg = 0.0; 
+                for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
+                { 
+                    for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
+                    {
+                            DetectorPtr det = *det_it;
+                            int j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                            if (det->FOV[j] && ((*det->Emap0)[j] > 0.0)) { 
+                                nEvents += (*det->Nmap[timeidx])[j]; 
+                                nBkg += det->norm[timeidx]*(*det->Emap)[j]; 
                             } 
                     }
-                        
-                    if (nBkg > 0.0) { 
-                            diffCRmap[i] = nEvents/nBkg-CRmap[i]; 
-                            bkgMap[i] = nBkg;
-                    }
-            } 
+                }
+                if (nBkg > 0.0) { 
+                    diffCRmap[i] = nEvents/nBkg-CRmap[i]; 
+                    bkgMap[i] = nBkg;
+                } } 
 
             // remove m=0 multipole moments :
             const int LMAX=180;
@@ -798,88 +571,69 @@ int main(int argc, char* argv[])
             // calculate new normalization 
             for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
             { 
-                double nEvents1 = 0.0;
-                double nBkg1 = 0.0; 
-                double nEvents2 = 0.0;
-                double nBkg2 = 0.0; 
-
-                // Integrate over all (rotated) pixels 
-                for (unsigned int i=0; i<npix; i++) 
+                for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
                 { 
-                        int j;
-                        j = eq2loc_idx(i, timeidx, lat1, lon1, nTimesteps, CRmap);
-                        if (FOV1[i] && (Emap01[i] > 0.0)) { 
-                                nEvents1 += (*Nmap1[timeidx])[i];
-                                nBkg1 += Emap1[i]*(CRmap[j]+diffCRmap[j]);
+                    DetectorPtr det = *det_it;
+                    double nEvents = 0.0; 
+                    double nBkg = 0.0; 
+                
+                    // Integrate over all (rotated) pixels 
+                    for (unsigned int i=0; i<npix; i++) 
+                    { 
+                        int j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                        if (det->FOV[i] && ((*det->Emap0)[i] > 0.0)) { 
+                                nEvents += (*det->Nmap[timeidx])[i];
+                                nBkg += (*det->Emap)[i]*(CRmap[j]+diffCRmap[j]);
                         } 
-
-                        j = eq2loc_idx(i, timeidx, lat2, lon2, nTimesteps, CRmap);
-                        if (FOV2[i] && (Emap02[i] > 0.0)) { 
-                                nEvents2 += (*Nmap2[timeidx])[i];
-                                nBkg2 += Emap2[i]*(CRmap[j]+diffCRmap[j]);
-                        } 
+                    } 
+                    if (nBkg > 0.0) { 
+                        det->norm[timeidx] = nEvents/nBkg; 
+                    } 
                 } 
-                if (nBkg1 > 0.0) { 
-                        norm1[timeidx] = nEvents1/nBkg1; 
-                } 
-                if (nBkg2 > 0.0) { 
-                        norm2[timeidx] = nEvents2/nBkg2; 
-                } 
-
-            } 
+            }
 
             // caluculate new acceptance
             for (unsigned int i=0; i<npix; i++) 
             {
-                double nEvents1 = 0.0;
-                double nBkg1 = 0.0; 
-                double nEvents2 = 0.0;
-                double nBkg2 = 0.0; 
-            
-                if ( !(Emap01[i] > 0.0) && !( Emap02[i] > 0.0) ) 
+                for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
+                {
+                    DetectorPtr det = *det_it;
+                    double nEvents = 0.0; 
+                    double nBkg = 0.0; 
+
+                    if (!((*det->Emap0)[i] > 0.0)) 
                         continue;
-
-                for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
-                {
-                    int j;
-                    j = eq2loc_idx(i, timeidx, lat1, lon1, nTimesteps, CRmap);
-                    nEvents1 += (*Nmap1[timeidx])[i];
-                    nBkg1 += norm1[timeidx]*(CRmap[j]+diffCRmap[j]);
-
-                    j = eq2loc_idx(i, timeidx, lat2, lon2, nTimesteps, CRmap);
-                    nEvents2 += (*Nmap2[timeidx])[i];
-                    nBkg2 += norm2[timeidx]*(CRmap[j]+diffCRmap[j]);
-                }
             
-                if ((Emap01[i] > 0.0) && (nBkg1 > 0.0)) 
-                {
-                    Emap1[i] = nEvents1/nBkg1;
-                } else { 
-                    Emap1[i] = 0.0;
-                }
-                if ((Emap02[i] > 0.0) && (nBkg2 > 0.0)) 
-                {
-                    Emap2[i] = nEvents2/nBkg2;
-                } else { 
-                    Emap2[i] = 0.0;
-                }
 
+                    for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
+                    { 
+                        int j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                        nEvents += (*det->Nmap[timeidx])[i];
+                        nBkg += det->norm[timeidx]*(CRmap[j]+diffCRmap[j]); 
+                    }
+                    if (((*det->Emap0)[i] > 0.0) && (nBkg > 0.0)) 
+                    { 
+                        (*det->Emap)[i] = nEvents/nBkg; 
+                    } else { 
+                        (*det->Emap)[i] = 0.0; 
+                    }
+                }
             }
             
             // Renormalize
-            double sumEmap1 = Sum(Emap1, npix);
-            double sumEmap2 = Sum(Emap2, npix);
-            
-            for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
+            for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
             { 
-                norm1[timeidx] = norm1[timeidx]*sumEmap1; 
-                norm2[timeidx] = norm2[timeidx]*sumEmap2; 
-            } 
-            for (unsigned int i=0; i < npix;i++ ) 
-            { 
-                    Emap1[i] = Emap1[i]/sumEmap1;
-                    Emap2[i] = Emap2[i]/sumEmap2;
-            } 
+                DetectorPtr det = *det_it;
+                double sumEmap = illh::Sum(*det->Emap, npix); 
+                for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
+                { 
+                    det->norm[timeidx] = det->norm[timeidx]*sumEmap; 
+                } 
+                for (unsigned int i=0; i < npix;i++ ) 
+                { 
+                    (*det->Emap)[i] = (*det->Emap)[i]/sumEmap;
+                } 
+            }
             
             SkyMap diffCRmapNormed; 
             diffCRmapNormed.SetNside(nsideOut, RING); 
@@ -892,56 +646,64 @@ int main(int argc, char* argv[])
             
             // write relative intensity map I_a^(n)
             stringstream namefits;
-            namefits << foldername << boost::format("/CR_%s-%s_%d_%d_iteration%02d.fits.gz") % detector1 % detector2 % nsideOut % nTimesteps % iteration;
+            namefits << foldername << boost::format("/CR_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
+
             if (fs::exists(namefits.str()) ) { 
                     fs::remove( namefits.str() ); 
             }
             fitshandle fitsOut; 
             fitsOut.create(namefits.str().c_str()); 
-            write_Healpix_map_to_fits(fitsOut, diffCRmapNormed, MyDTYPE);
+            write_Healpix_map_to_fits(fitsOut, diffCRmapNormed, dataMap, bkgMap, MyDTYPE);
             fitsOut.close(); 
 
        
             // write N_tau^(n) normalizaton to file
-            save_iter(foldername, norm1, Emap1, detector1, nsideOut, nTimesteps, iteration);
-            save_iter(foldername, norm2, Emap2, detector2, nsideOut, nTimesteps, iteration);
+            for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
+            { 
+                DetectorPtr det = *det_it;
+                illh::save_iter(foldername, det->norm, *det->Emap, det->name, nsideOut, nTimesteps, iteration);
+            }
 
             // calculate statistical significance : S_a^(n)
             SkyMap significancemap; 
+            SkyMap sigmu_on; 
+            SkyMap sigmu_off; 
+            SkyMap signtot; 
             significancemap.SetNside(nsideOut, RING);
             significancemap.fill(0.);
+            sigmu_on.SetNside(nsideOut, RING);
+            sigmu_on.fill(0.);
+            sigmu_off.SetNside(nsideOut, RING);
+            sigmu_off.fill(0.);
+            signtot.SetNside(nsideOut, RING);
+            signtot.fill(0.);
             
             log_info("Significance " << iteration << " ...");
             for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
             { 
                     for (unsigned int i=0; i < npix;i++ ) 
                     { 
+                        for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
+                        { 
+                            DetectorPtr det = *det_it;
                             //rotation from local to Equatorial (ra,dec) 
-                            int j;
-                            j = loc2eq_idx(i, timeidx, lat1, lon1, nTimesteps, CRmap);
+                            int j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
 
                             // global significance 
-                            if (Emap01[j]*norm01[timeidx] > 0.0 && Emap1[j]*norm1[timeidx] > 0.0) { 
-                                    significancemap[i] += -2.0*(diffCRmap[i]+CRmap[i])*Emap1[j]*norm1[timeidx]; 
-                                    significancemap[i] += +2.0*CRmap[i]*Emap01[j]*norm01[timeidx]; 
-                                    double temp1 = Emap1[j]/Emap01[j]*norm1[timeidx]/norm01[timeidx];
-                                    significancemap[i] += 2.0*(*Nmap1[timeidx])[j]*log(temp1*(1.0+diffCRmap[i]/CRmap[i])); 
+                            if ((*det->Emap0)[j]*det->norm0[timeidx] > 0.0 && (*det->Emap)[j]*det->norm[timeidx] > 0.0) { 
+                                significancemap[i] += -2.0*(diffCRmap[i]+CRmap[i])*(*det->Emap)[j]*det->norm[timeidx]; 
+                                double temp1 = (*det->Emap)[j]/(*det->Emap0)[j]*det->norm[timeidx]/det->norm0[timeidx];
+                                significancemap[i] += 2.0*(*det->Nmap[timeidx])[j]*log(temp1*(1.0+diffCRmap[i]/CRmap[i])); 
                             }
-
-                            j = loc2eq_idx(i, timeidx, lat2, lon2, nTimesteps, CRmap);
-                            if (Emap02[j]*norm02[timeidx] > 0.0 && Emap2[j]*norm2[timeidx] > 0.0) { 
-                                    significancemap[i] += -2.0*(diffCRmap[i]+CRmap[i])*Emap2[j]*norm2[timeidx]; 
-                                    significancemap[i] += +2.0*CRmap[i]*Emap02[j]*norm02[timeidx]; 
-                                    double temp2 = Emap2[j]/Emap02[j]*norm2[timeidx]/norm02[timeidx];
-                                    significancemap[i] += 2.0*(*Nmap2[timeidx])[j]*log(temp2*(1.0+diffCRmap[i]/CRmap[i])); 
-                            }
-
+                        }
                     } 
             }
 
+
+
             //write S_a^(n)
             stringstream nameSIGfits;
-            nameSIGfits << foldername <<  boost::format("/significance_%s-%s_%d_%d_iteration%02d.fits.gz") % detector1 % detector2 % nsideOut % nTimesteps % iteration; 
+            nameSIGfits << foldername << boost::format("/significance_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
             if (fs::exists(nameSIGfits.str()) ) {
                     fs::remove(nameSIGfits.str() );
             }
@@ -952,16 +714,6 @@ int main(int argc, char* argv[])
             log_info("Finished iteration " << iteration << " of " << nIterations << "...");
 
     }
-
-    fitshandle bkgfitsOut; 
-    stringstream bkgmapname;
-    bkgmapname <<  foldername << boost::format("/background_%s-%s_%d_%d.fits.gz") % detector1 % detector2 % nsideOut % nTimesteps;
-    if (fs::exists(bkgmapname.str()) ) {
-            fs::remove( bkgmapname.str() );
-    }
-    bkgfitsOut.create(bkgmapname.str().c_str());
-    write_Healpix_map_to_fits(bkgfitsOut, bkgMap, MyDTYPE);
-    bkgfitsOut.close();
 
     return 0;
 }
