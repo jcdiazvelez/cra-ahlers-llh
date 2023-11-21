@@ -43,7 +43,7 @@ The output will be in the form of a HEALPix map of NSide = 64 but you can specif
 Other parameters such as ``--seed``, ``--iso``, and ``--fluctuate`` are only used for systematic studies.
 
 ````{verbatim}
-  ./bin/multi-llh [options] --config <json config file>  -o <output file> --iterations <number of iterations> 
+  ./bin/multi-llh [options] --config <json config file>  -o <output directory> --iterations <number of iterations> 
   Basic Command Line Parameter App
   Options:
     -h [ --help ]                    produce help message
