@@ -33,22 +33,9 @@ add_executable(multi-llh
             private/iter-lhreco/illh-utils.cc
             )
 
-add_executable(illh-reco
-            private/iter-lhreco/illh-reco.cc 
-            private/iter-lhreco/pickle.cc
-            private/iter-lhreco/illh-utils.cc
-            )
-
-
 
 
 target_link_libraries(multi-llh 
-                ${CFITSIO_LIBRARIES} 
-                ${HEALPIX-CXX_LIBRARIES} 
-                ${Boost_LIBRARIES})
-
-
-target_link_libraries(illh-reco
                 ${CFITSIO_LIBRARIES} 
                 ${HEALPIX-CXX_LIBRARIES} 
                 ${Boost_LIBRARIES})
