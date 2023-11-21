@@ -1,7 +1,7 @@
 # cra-ahlers-llh
 * Iterative log-likelyhood reconstruction for CRA
 * C++ implementation of maximum-likelihood technique for reconstructing cosmic-ray anisotropy maps
-* Cite: [ http://iopscience.iop.org/article/10.3847/0004-637X/823/1/10 | (M. Ahlers et al 2016 ApJ 823 10)]
+* Cite: [M. Ahlers et al 2016 ApJ 823 10](http://iopscience.iop.org/article/10.3847/0004-637X/823/1/10)
 
 ## scripts
 Collection of scripts for driving production of extraction, reconstruction and analysis of cosmic-ray data.
