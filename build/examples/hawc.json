@@ -1,0 +1,14 @@
+{
+    "detectors": {
+        "HAWC": { 
+            "nside":64,
+            "latitude": 19.0,
+            "longitude": -97.0,
+            "thetamax": 57.0,
+            "prefix": "/data/user/juancarlos/anisotropy/HAWC/local/v8/combined/hawclocal-v8_N64_",
+            "suffix": "_of_360.fits.gz"
+        }
+    }
+}
+
+
