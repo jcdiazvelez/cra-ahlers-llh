@@ -48,7 +48,6 @@ You need to provide a JSON configuration file that lists the parameters for each
     --timestepmin arg (=0)           First time step to use
     --timestepmax arg (=0)           Last time step to use
     --iterations arg (=20)           Number of iterations
-    --sectors arg (=1)               Number sectors
     -f [ --fluctuate ]               add random fluctuations
     --seed arg (=123)                RNG seed
     --iso                            make isotropic map
