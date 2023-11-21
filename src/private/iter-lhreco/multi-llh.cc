@@ -275,7 +275,6 @@ int main(int argc, char* argv[])
              ("timestepmin", po::value<unsigned int>(&timeidxMin)->default_value(0), "First time step to use") 
              ("timestepmax", po::value<unsigned int>(&timeidxMax)->default_value(0), "Last time step to use") 
              ("iterations", po::value<unsigned int>(&nIterations)->default_value(20), "Number of iterations") 
-             ("sectors", po::value<unsigned int>(&nSectors)->default_value(1), "Number sectors") 
 #if __cplusplus > 199711L
              ("fluctuate,f", po::bool_switch(&randfluct)->default_value(false), "add random fluctuations")
              ("seed", po::value<unsigned int>(&seed)->default_value(123), "RNG seed")
