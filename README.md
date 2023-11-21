@@ -36,6 +36,7 @@ Each project has a CMakeList.txt that will detect dependencies and generate a Ma
 
 **Running**:
 You need to provide a JSON configuration file that lists the parameters for each observatory. There is an ``examples`` directory that contains configurations for IceCube, HAWC and IceCube+HAWC. The config file can contain an arbitrary number of observatories. 
+The output will be in the form of a HEALPix map of NSide = 64 but you can specify a different NSide. If you don't specify the number of iterations, it will default to 20. Other parameters such as ``--seed``, ``--iso``, and ``--fluctuate`` are only used for systematic studies.
 
 ````{verbatim}
   ./bin/multi-llh [options] --config <json config file>  -o <output file> --iterations <number of iterations> 
