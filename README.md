@@ -59,6 +59,20 @@ Other parameters such as ``--seed``, ``--iso``, and ``--fluctuate`` are only use
     --config arg (=config.json)      JSON config
 ````
 
+**Input files:**
+The input should be specified in the JSON config file (see examples) and consists of data binned into local HEALPix maps for each sidereal time bin (24h/360 bins by default). The config file specifies the prefix and suffix of each file. For eaxmple:
+
+````{verbatim}
+  "prefix": "CR_ICECUBE_LOCAL_NSIDE64_degbin-",
+  "suffix": ".fits.gz"
+````
+would assume that the files are named 
+````{verbatim}
+  CR_ICECUBE_LOCAL_NSIDE64_degbin-000.fits.gz
+  CR_ICECUBE_LOCAL_NSIDE64_degbin-001.fits.gz
+  ...
+  CR_ICECUBE_LOCAL_NSIDE64_degbin-359.fits.gz
+````
 **Local coordinates**:
 
 The rotation matrices implemented in this code use a conversion of [J2000.0 equatorial coordinates](http://en.wikipedia.org/wiki/Epoch_(astronomy)) to local coordinates.
