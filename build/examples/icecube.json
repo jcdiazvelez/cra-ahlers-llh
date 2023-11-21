@@ -5,7 +5,7 @@
             "latitude": -90.0,
             "longitude": 270.0,
             "thetamax": 65.0,
-            "prefix": "/data/user/juancarlos/anisotropy/IceCube/localmaps/all-years/newcuts-v2/N64/combined/CROCAL_NSIDE64_degbin-",
+            "prefix": "/data/user/juancarlos/anisotropy/IceCube/localmaps/all-years/newcuts-v2/N64/combined/CR_ICECUBE_LOCAL_NSIDE64_degbin-",
             "suffix": ".fits.gz"
         }
     }
