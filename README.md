@@ -58,3 +58,14 @@ Other parameters such as ``--seed``, ``--iso``, and ``--fluctuate`` are only use
     --iso                            make isotropic map
     --config arg (=config.json)      JSON config
 ````
+
+**Local coordinates**:
+
+Star Positions in Local Coordinates
+
+The rotation matrices implemented in this code use a conversion of [J2000.0 equatorial coordinates](http://en.wikipedia.org/wiki/Epoch_(astronomy)) to local coordinates.
+
+Local coordinates are expressed in a right-handed sense, with x=E and y=N, with \phi = 0 oriented along the x-axis and following 
+the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_system) for spherical coordinates (r, θ, φ), with r=1, polar angle θ (theta) (angle with respect to positive polar axis), and azimuthal angle φ (phi).
+
+
