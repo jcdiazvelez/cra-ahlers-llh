@@ -34,4 +34,23 @@ Each project has a CMakeList.txt that will detect dependencies and generate a Ma
   make
 
 
+**Running**:
+You need to provide a JSON configuration file that lists the parameters for each observatory. There is an ``examples`` directory that contains configurations for IceCube, HAWC and IceCube+HAWC. The config file can contain an arbitrary number of observatories. 
 
+````{verbatim}
+  ./bin/multi-llh [options] --config <json config file>  -o <output file> --iterations <number of iterations> 
+  Basic Command Line Parameter App
+  Options:
+    -h [ --help ]                    produce help message
+    -o [ --outdir ] arg (=./sample/) Directory of output
+    --nsideout arg (=64)             Healpix Nside for output map
+    --timesteps arg (=360)           Number of time steps
+    --timestepmin arg (=0)           First time step to use
+    --timestepmax arg (=0)           Last time step to use
+    --iterations arg (=20)           Number of iterations
+    --sectors arg (=1)               Number sectors
+    -f [ --fluctuate ]               add random fluctuations
+    --seed arg (=123)                RNG seed
+    --iso                            make isotropic map
+    --config arg (=config.json)      JSON config
+````
