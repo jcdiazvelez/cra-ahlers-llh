@@ -61,8 +61,6 @@ Other parameters such as ``--seed``, ``--iso``, and ``--fluctuate`` are only use
 
 **Local coordinates**:
 
-Star Positions in Local Coordinates
-
 The rotation matrices implemented in this code use a conversion of [J2000.0 equatorial coordinates](http://en.wikipedia.org/wiki/Epoch_(astronomy)) to local coordinates.
 
 Local coordinates are expressed in a right-handed sense, with x=E and y=N, with \phi = 0 oriented along the x-axis and following 
