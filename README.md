@@ -80,7 +80,7 @@ would assume that the files are named
 The rotation matrices implemented in this code use a conversion of [J2000.0 equatorial coordinates](http://en.wikipedia.org/wiki/Epoch_(astronomy)) to local coordinates.
 
 Local coordinates are expressed in a right-handed sense, with x=E and y=N, with \phi = 0 oriented along the x-axis and following 
-the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_system) for spherical coordinates (r, θ, φ), with r=1, polar angle θ (theta) (angle with respect to positive polar axis), and azimuthal angle φ (phi).
+the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_system) for a unit sphere with coordinates (θ, φ), with polar angle θ (theta) (angle with respect to positive polar axis), and azimuthal angle φ (phi).
 
 
 **Output files:**
