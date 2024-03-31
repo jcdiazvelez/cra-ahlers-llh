@@ -79,8 +79,8 @@ would assume that the files are named
 
 The rotation matrices implemented in this code use a conversion of [J2000.0 equatorial coordinates](http://en.wikipedia.org/wiki/Epoch_(astronomy)) to local coordinates.
 
-Local coordinates are expressed in a right-handed sense, with x=E and y=N, with \phi = 0 oriented along the x-axis and following 
-the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_system) for a unit sphere with coordinates (θ, φ), with polar angle θ (theta) (angle with respect to positive polar axis), and azimuthal angle φ (phi).
+Local coordinates are expressed in a right-handed sense, with $x=E$ and $y=N$, with $\phi$ = 0 oriented along the x-axis and following 
+the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_system) for a unit sphere with coordinates $(\theta,\phi)$, with polar angle $\theta$ (theta) (angle with respect to positive polar axis), and azimuthal angle $\phi$ (phi).
 
 
 **Output files:**
@@ -94,4 +94,4 @@ The output files will be named:
 If ```--save-iter``` option is used, there will be one of each of the above files per iteration. Otherwise only the initial and final results will be saved.
 
 The code will terminate after convergence or after reaching the number of
-iterations (whichever is reached first). 
+iterations (whichever comes first). 
