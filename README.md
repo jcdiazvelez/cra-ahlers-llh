@@ -84,11 +84,14 @@ the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_syst
 
 
 **Output files:**
-The code will terminate after convergence or after reaching the number of
-iterations (whichever is reached first). The output files will be named:
-* "CR_{detector(s)}__64_360_iteration{max_iter}.fits.gz": (data, background, alm_smoothed relative intensity)
-* "variance_{detector(s)}_{nside}_{nTbins}_iteration{max_iter}.fits.gz": (relative error, Li-Ma significance (squared), expectation \mu)
-* "llhratio_{detector(s)}_{nside}_{nTbins}_iteration{max_iter}.dat": (llh_n - llh_0)
-* "exposure_{detector}_{nside}_{nTbins}_iteration{max_iter}.fits.gz": (A_i: one file per dectector)
-* "norm_{detector}_{nside}_{nTbins}_iteration{max_iter}.dat": (N_tau: one file per detector)
+The output files will be named:
+* ```"CR_{detector(s)}__64_360_iteration{max_iter}.fits.gz"```: (data $d_i$, background $b_i$, $a_{\ell m}$-smoothed relative intensity)
+* ```"variance_{detector(s)}_{nside}_{nTbins}_iteration{max_iter}.fits.gz"```: (relative error $\sigma_i/\mu_i$, Li-Ma significance (squared) $\sigma^2_{i,\mathrm{Li-Ma}}$ , expectation $\mu$)
+* ```"llhratio_{detector(s)}_{nside}_{nTbins}_iteration{max_iter}.dat"```: ($\mathrm{llh}_n - \mathrm{llh}_0$)
+* ```"exposure_{detector}_{nside}_{nTbins}_iteration{max_iter}.fits.gz"```: ($A_i$: one file per dectector)
+* ```"norm_{detector}_{nside}_{nTbins}_iteration{max_iter}.dat"```: (<math>$N_\tau$</math>: one file per detector)
 
+If ```--save-iter``` option is used, there will be one of each of the above files per iteration. Otherwise only the initial and final results will be saved.
+
+The code will terminate after convergence or after reaching the number of
+iterations (whichever is reached first). 
