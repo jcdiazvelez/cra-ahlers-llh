@@ -44,19 +44,20 @@ Other parameters such as ``--seed``, ``--iso``, and ``--fluctuate`` are only use
 
 ````{verbatim}
   ./bin/multi-llh [options] --config <json config file>  -o <output directory> --iterations <number of iterations> 
-  Basic Command Line Parameter App
-  Options:
-    -h [ --help ]                    produce help message
-    -o [ --outdir ] arg (=./sample/) Directory of output
-    --nsideout arg (=64)             Healpix Nside for output map
-    --timesteps arg (=360)           Number of time steps
-    --timestepmin arg (=0)           First time step to use
-    --timestepmax arg (=0)           Last time step to use
-    --iterations arg (=20)           Number of iterations
-    -f [ --fluctuate ]               add random fluctuations
-    --seed arg (=123)                RNG seed
-    --iso                            make isotropic map
-    --config arg (=config.json)      JSON config
+Basic Command Line Parameter App
+Options:
+  -h [ --help ]                    produce help message
+  -o [ --outdir ] arg (=./sample/) Directory of output
+  --nsideout arg (=64)             Healpix Nside for output map
+  --timesteps arg (=360)           Number of time steps
+  --timestepmin arg (=0)           First time step to use
+  --timestepmax arg (=0)           Last time step to use
+  --iterations arg (=20)           Number of iterations
+  --save-iter                      save each iteration
+  -f [ --fluctuate ]               add random fluctuations
+  --seed arg (=123)                RNG seed
+  --iso                            make isotropic map
+  --config arg (=config.json)      JSON config
 ````
 
 **Input files:**
@@ -73,6 +74,7 @@ would assume that the files are named
   ...
   CR_ICECUBE_LOCAL_NSIDE64_degbin-359.fits.gz
 ````
+
 **Local coordinates**:
 
 The rotation matrices implemented in this code use a conversion of [J2000.0 equatorial coordinates](http://en.wikipedia.org/wiki/Epoch_(astronomy)) to local coordinates.
@@ -80,4 +82,13 @@ The rotation matrices implemented in this code use a conversion of [J2000.0 equa
 Local coordinates are expressed in a right-handed sense, with x=E and y=N, with \phi = 0 oriented along the x-axis and following 
 the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_system) for spherical coordinates (r, θ, φ), with r=1, polar angle θ (theta) (angle with respect to positive polar axis), and azimuthal angle φ (phi).
 
+
+**Output files:**
+The code will terminate after convergence or after reaching the number of
+iterations (whichever is reached first). The output files will be named:
+* "CR_{detector(s)}__64_360_iteration{max_iter}.fits.gz": (data, background, alm_smoothed relative intensity)
+* "variance_{detector(s)}_{nside}_{nTbins}_iteration{max_iter}.fits.gz": (relative error, Li-Ma significance (squared), expectation \mu)
+* "llhratio_{detector(s)}_{nside}_{nTbins}_iteration{max_iter}.dat": (llh_n - llh_0)
+* "exposure_{detector}_{nside}_{nTbins}_iteration{max_iter}.fits.gz": (A_i: one file per dectector)
+* "norm_{detector}_{nside}_{nTbins}_iteration{max_iter}.dat": (N_tau: one file per detector)
 

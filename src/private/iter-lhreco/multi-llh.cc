@@ -97,9 +97,6 @@ void fluctuate(std::vector<SkyMapPtr>& Nmap, boost::mt19937 rng)
 {
     log_info("adding random fluctuations... " );
 
-    // create a generator 
-    //Mersenne Twister generator 
-
     typedef boost::variate_generator< 
                     boost::mt19937, boost::poisson_distribution<> 
                       > rnd_poisson_t; 
@@ -130,15 +127,13 @@ void isotropic(std::vector<SkyMapPtr>& Nmap, boost::mt19937 rng)
 {
     log_info("generating isotropic maps... " );
 
-    // create a generator 
-    //Mersenne Twister generator 
-
     typedef boost::variate_generator< 
                     boost::mt19937, boost::poisson_distribution<> 
                       > rnd_poisson_t; 
     
     unsigned nside = Nmap[0]->Nside();
     unsigned npix = 12*nside*nside; 
+
 
     for (unsigned i=0;i<npix;++i) 
     {
@@ -165,41 +160,6 @@ void isotropic(std::vector<SkyMapPtr>& Nmap, boost::mt19937 rng)
 }
 #endif
 
-
-
-
-/*
- * save_iter - save results of iteration to FITS file
- */
-void save_iter(
-                std::string foldername,
-                std::vector<double> norm,
-                SkyMap& Emap,
-                std::string detector,
-                unsigned nsideOut, 
-                unsigned nTimesteps, 
-                unsigned iteration)
-{
-    //  write N_tau^(i)
-    stringstream normName;
-    normName << foldername << boost::format("/norm_%s_%d_%d_iteration%02d.dat") % detector % nsideOut % nTimesteps % iteration;
-    std::ofstream fileout(normName.str().c_str());
-    for(std::vector<double>::iterator it = norm.begin(); it != norm.end(); ++it) {
-      fileout << *it << "\n";
-    }
-    fileout.close();
-
-    // write A_i^(n)
-    fitshandle fitsOut; 
-    stringstream expmapname;
-    expmapname << foldername << boost::format("/exposure_%s_%d_%d_iteration%02d.fits") % detector % nsideOut % nTimesteps % iteration;
-    if (fs::exists(expmapname.str()) ) { 
-            fs::remove( expmapname.str() ); 
-    } 
-    fitsOut.create(expmapname.str().c_str()); 
-    write_Healpix_map_to_fits(fitsOut, Emap, MyDTYPE);
-    fitsOut.close();
-}
 
 
 
@@ -259,7 +219,9 @@ int main(int argc, char* argv[])
     unsigned int nsideOut;
     unsigned int npix;
     bool randfluct;
+    bool save_iter_flag;
     bool iso;
+    bool done(false);
     unsigned int seed;
 
     po::options_description desc("Options"); 
@@ -275,6 +237,7 @@ int main(int argc, char* argv[])
              ("timestepmin", po::value<unsigned int>(&timeidxMin)->default_value(0), "First time step to use") 
              ("timestepmax", po::value<unsigned int>(&timeidxMax)->default_value(0), "Last time step to use") 
              ("iterations", po::value<unsigned int>(&nIterations)->default_value(20), "Number of iterations") 
+             ("save-iter", po::bool_switch(&save_iter_flag)->default_value(false), "save each iteration")
 #if __cplusplus > 199711L
              ("fluctuate,f", po::bool_switch(&randfluct)->default_value(false), "add random fluctuations")
              ("seed", po::value<unsigned int>(&seed)->default_value(123), "RNG seed")
@@ -295,7 +258,6 @@ int main(int argc, char* argv[])
         pt::read_json(config_path.c_str(), root);
         
         // Iterator over all detectors
-
         npix = 12*nsideOut*nsideOut; 
 
         for (pt::ptree::value_type &detector: root.get_child("detectors"))
@@ -323,7 +285,6 @@ int main(int argc, char* argv[])
             det->Emap0 = SkyMapPtr(new SkyMap);
             det->Emap0->SetNside(nsideOut, RING);
             det->Emap0->fill(0.);
-
 
             // n^th exposure : A_i^(n)
             det->Emap = SkyMapPtr(new SkyMap);
@@ -357,8 +318,6 @@ int main(int argc, char* argv[])
     //*****************************************************************************
 
     // Import data : n_tau_i
-
-
     stringstream detector_names_str;
     std::vector<DetectorPtr>::iterator det_it;
     double totsectors(0);
@@ -483,7 +442,7 @@ int main(int argc, char* argv[])
                 {
                     DetectorPtr det = *det_it;
                     int j; 
-                    j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                    j = illh::eq2log_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
                     if ((*det->Emap0)[j] > 0.0 ){ 
                         nEvents += (*det->Nmap[timeidx])[j];
                         nBkg    += det->norm[timeidx]*(*det->Emap0)[j]; 
@@ -495,14 +454,15 @@ int main(int argc, char* argv[])
     
     //  write N_tau^(0), write A_i^(0)
     log_info("Writting initial exposure");
-    for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
-    {
-        DetectorPtr det = *det_it;
-        illh::save_iter(foldername, det->norm, *det->Emap0, det->name, nsideOut, nTimesteps, 0);
+    for (det_it = detectors.begin(); det_it != detectors.end(); det_it++) 
+    { 
+        DetectorPtr det = *det_it; 
+        illh::save_iter(foldername, det->norm, *det->Emap0, det->name, nsideOut, nTimesteps, 0); 
     }
 
 
     // write n_a
+    /**
     fitshandle fitsOut; 
     stringstream datamapname;
     datamapname << foldername << boost::format("/data_%s_%d_%d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps;
@@ -512,6 +472,7 @@ int main(int argc, char* argv[])
     fitsOut.create(datamapname.str().c_str());
     write_Healpix_map_to_fits(fitsOut, dataMap, MyDTYPE);
     fitsOut.close();
+    */
 
     //*****************************************************************************
     ////// Iterate //////////////////////////////////////////////////////////////// 
@@ -521,6 +482,8 @@ int main(int argc, char* argv[])
     SkyMap diffCRmap;
     diffCRmap.SetNside(nsideOut, RING);
     diffCRmap.fill(0.);
+
+    std::vector<double> llh;
 
     for (unsigned int iteration = 1; iteration <= nIterations; iteration++)
     { 
@@ -536,8 +499,8 @@ int main(int argc, char* argv[])
                     for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
                     {
                             DetectorPtr det = *det_it;
-                            int j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
-                            if (det->FOV[j] && ((*det->Emap0)[j] > 0.0)) { 
+                            int j = illh::eq2log_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                            if (det->FOV[j] && ((*det->Emap)[j] > 0.0)) { 
                                 nEvents += (*det->Nmap[timeidx])[j]; 
                                 nBkg += det->norm[timeidx]*(*det->Emap)[j]; 
                             } 
@@ -546,10 +509,12 @@ int main(int argc, char* argv[])
                 if (nBkg > 0.0) { 
                     diffCRmap[i] = nEvents/nBkg-CRmap[i]; 
                     bkgMap[i] = nBkg;
-                } } 
+                } 
+            } 
 
             // remove m=0 multipole moments :
-            const int LMAX=180;
+            //const int LMAX=180;
+            const int LMAX=2*nsideOut;
 
             // Initialize the spherical harmonic coefficients of the map
             Alm<xcomplex<double> > alm( LMAX, LMAX);
@@ -579,7 +544,7 @@ int main(int argc, char* argv[])
                     // Integrate over all (rotated) pixels 
                     for (unsigned int i=0; i<npix; i++) 
                     { 
-                        int j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                        int j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
                         if (det->FOV[i] && ((*det->Emap0)[i] > 0.0)) { 
                                 nEvents += (*det->Nmap[timeidx])[i];
                                 nBkg += (*det->Emap)[i]*(CRmap[j]+diffCRmap[j]);
@@ -606,7 +571,7 @@ int main(int argc, char* argv[])
 
                     for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
                     { 
-                        int j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                        int j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
                         nEvents += (*det->Nmap[timeidx])[i];
                         nBkg += det->norm[timeidx]*(CRmap[j]+diffCRmap[j]); 
                     }
@@ -643,74 +608,159 @@ int main(int argc, char* argv[])
                     diffCRmapNormed[i] = diffCRmap[i]/isovalue; 
             } 
             
-            // write relative intensity map I_a^(n)
-            stringstream namefits;
-            namefits << foldername << boost::format("/CR_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
-
-            if (fs::exists(namefits.str()) ) { 
-                    fs::remove( namefits.str() ); 
-            }
-            fitshandle fitsOut; 
-            fitsOut.create(namefits.str().c_str()); 
-            write_Healpix_map_to_fits(fitsOut, diffCRmapNormed, dataMap, bkgMap, MyDTYPE);
-            fitsOut.close(); 
-
-       
-            // write N_tau^(n) normalizaton to file
-            for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
-            { 
-                DetectorPtr det = *det_it;
-                illh::save_iter(foldername, det->norm, *det->Emap, det->name, nsideOut, nTimesteps, iteration);
-            }
-
+                   
             // calculate statistical significance : S_a^(n)
-            SkyMap significancemap; 
-            SkyMap sigmu_on; 
-            SkyMap sigmu_off; 
-            SkyMap signtot; 
-            significancemap.SetNside(nsideOut, RING);
-            significancemap.fill(0.);
-            sigmu_on.SetNside(nsideOut, RING);
-            sigmu_on.fill(0.);
-            sigmu_off.SetNside(nsideOut, RING);
-            sigmu_off.fill(0.);
-            signtot.SetNside(nsideOut, RING);
-            signtot.fill(0.);
+            SkyMap variancemap; 
+            variancemap.SetNside(nsideOut, RING);
+            variancemap.fill(0.);
+
+            // calculate statistical error: 
+            SkyMap errormap; 
+            errormap.SetNside(nsideOut, RING);
+            errormap.fill(0.);
+
+            // calculate expectation mu
+            SkyMap expectationMap; 
+            expectationMap.SetNside(nsideOut, RING);
+            expectationMap.fill(0.);
+
+            double llhtemp = 0;
             
             log_info("Significance " << iteration << " ...");
-            for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
+            for (unsigned int i=0; i < npix;i++ ) 
             { 
-                    for (unsigned int i=0; i < npix;i++ ) 
+                    double musum(0.);
+                    for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
                     { 
+                        double mu(0.);
+                        double mu0(0.);
+                        double Njt(0.);
+                        double error = 0;
                         for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
                         { 
                             DetectorPtr det = *det_it;
-                            //rotation from local to Equatorial (ra,dec) 
-                            int j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                            //rotation from Equatorial (ra,dec) to local (theta,phi)
+                            int j = illh::eq2log_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
 
                             // global significance 
-                            if ((*det->Emap0)[j]*det->norm0[timeidx] > 0.0 && (*det->Emap)[j]*det->norm[timeidx] > 0.0) { 
-                                significancemap[i] += -2.0*(diffCRmap[i]+CRmap[i])*(*det->Emap)[j]*det->norm[timeidx]; 
-                                double temp1 = (*det->Emap)[j]/(*det->Emap0)[j]*det->norm[timeidx]/det->norm0[timeidx];
-                                significancemap[i] += 2.0*(*det->Nmap[timeidx])[j]*log(temp1*(1.0+diffCRmap[i]/CRmap[i])); 
+                            double ej = (*det->Emap)[j];
+                            double ej0 = (*det->Emap0)[j];
+                            double nt = det->norm[timeidx];
+                            double nt0 = det->norm0[timeidx];
+                            double Njt_temp = (*det->Nmap[timeidx])[j];
+
+                            if (ej0*nt0 > 0.0 && ej*nt > 0.0) { 
+                                variancemap[i] += -2.0*(diffCRmap[i]+CRmap[i])*ej*nt; 
+                                variancemap[i] += 2.0*CRmap[i]*ej0*nt0; 
+                                double temp1 = ej/ej0*nt/nt0;
+                                variancemap[i] += 2.0*Njt_temp*log(temp1*(1.0+diffCRmap[i]/CRmap[i])); 
+
+                                mu += nt*ej;
+                                mu0 += nt0*ej0;
+                                Njt += Njt_temp;
+                                musum += mu;
                             }
                         }
-                    } 
+                        if (mu>0 && mu0>0)
+                        {
+                            mu *= (diffCRmap[i]+CRmap[i]);
+                            mu0 *= CRmap[i];
+                            llhtemp+= Njt*(mu*log(mu)-mu0*log(mu0));
+                            errormap[i]+=pow(mu-Njt,2);
+                        }
+                    }
+                    if (musum> 0)
+                    {
+                      errormap[i] = sqrt(errormap[i])/musum;
+                      expectationMap[i]=musum;
+                    }
             }
 
-
-
-            //write S_a^(n)
-            stringstream nameSIGfits;
-            nameSIGfits << foldername << boost::format("/significance_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
-            if (fs::exists(nameSIGfits.str()) ) {
-                    fs::remove(nameSIGfits.str() );
+            // cleaning out nonsensical values
+            for (unsigned int i=0; i < npix;i++ ) 
+            {
+                if (variancemap[i] < 0)
+                {
+                    variancemap[i] = 0.;
+                }
             }
-            fitsOut.create(nameSIGfits.str().c_str()); 
-            write_Healpix_map_to_fits(fitsOut, significancemap, MyDTYPE);
-            fitsOut.close(); 
 
             log_info("Finished iteration " << iteration << " of " << nIterations << "...");
+            log_info("llh : " << llhtemp);
+            double llhprev(0);
+
+            if (llh.size()>0) 
+            {
+                log_info("llh ratio : " << 2*(llhtemp-llh[0]));
+                llhprev = llh.back();
+            }
+            if (llh.size()>1) 
+                log_info("llh ratio n, n-1: " << 2*(llhtemp-llh.back()));
+
+            llh.push_back(llhtemp);
+
+            if ((llh.size()>2) && ((llhtemp-llhprev) < 1e-4))
+            {
+                log_info("Converged: llh ratio n, n-1: " << 2*(llhtemp-llhprev));
+                done = true;
+            }
+
+            if (iteration >= nIterations-1)
+            {
+                log_info("Reached max iterations");
+                done = true;
+            }
+
+
+            if (save_iter_flag || done)
+            { 
+                // write N_tau^(n) normalizaton to file
+                for (det_it = detectors.begin(); det_it != detectors.end(); det_it++) 
+                { 
+                    DetectorPtr det = *det_it; 
+                    illh::save_iter(foldername, det->norm, *det->Emap, det->name, nsideOut, nTimesteps, iteration);
+                } 
+
+                // write relative intensity map I_a^(n)
+                stringstream namefits;
+                namefits << foldername << boost::format("/CR_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
+
+                if (fs::exists(namefits.str()) ) { 
+                        fs::remove( namefits.str() ); 
+                }
+                fitshandle fitsOut; 
+                fitsOut.create(namefits.str().c_str()); 
+                write_Healpix_map_to_fits(fitsOut, dataMap, bkgMap, diffCRmapNormed, MyDTYPE);
+                fitsOut.close(); 
+
+
+                //write S_a^(n)
+                stringstream nameSIGfits;
+                nameSIGfits << foldername << boost::format("/variance_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
+                if (fs::exists(nameSIGfits.str()) ) {
+                        fs::remove(nameSIGfits.str() );
+                }
+                fitsOut.create(nameSIGfits.str().c_str()); 
+                write_Healpix_map_to_fits(fitsOut, errormap, variancemap, expectationMap, MyDTYPE);
+                fitsOut.close(); 
+
+         
+                //  write llhratio^(i) 
+                stringstream llhName; 
+                llhName << foldername << boost::format("/llhratio_%s_%d_%d_iteration%02d.dat") % detector_names_str.str() % nsideOut % nTimesteps % iteration; 
+                std::ofstream llhfileout(llhName.str().c_str()); 
+                for(std::vector<double>::iterator it = llh.begin(); it != llh.end(); ++it) { 
+                    llhfileout << *it << "\n"; 
+                } 
+                llhfileout.close();
+
+            }
+            if (done)
+            {
+                log_info("Finished");
+                break;
+            }
+
 
     }
 

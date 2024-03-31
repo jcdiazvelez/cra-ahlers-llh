@@ -261,7 +261,7 @@ void illh::save_iter(
     // write A_i^(n)
     fitshandle fitsOut; 
     stringstream expmapname;
-    expmapname << foldername << boost::format("/exposure_%s_%d_%d_iteration%02d.fits") % detector % nsideOut % nTimesteps % iteration;
+    expmapname << foldername << boost::format("/exposure_%s_%d_%d_iteration%02d.fits.gz") % detector % nsideOut % nTimesteps % iteration;
     if (fs::exists(expmapname.str()) ) { 
             fs::remove( expmapname.str() ); 
     } 
@@ -282,7 +282,7 @@ void illh::save_iter(
  * @return rotated pixel id
  */
 unsigned 
-illh::loc2eq_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap)
+illh::eq2log_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap)
 { 
         vec3 v =  CRmap.pix2vec(i); 
         double clat = cos(lat); 
@@ -328,7 +328,7 @@ illh::loc2eq_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned 
  * @return rotated pixel id
  */
 unsigned 
-illh::eq2loc_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap)
+illh::loc2eq_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap)
 { 
 
         vec3 v =  CRmap.pix2vec(i); 

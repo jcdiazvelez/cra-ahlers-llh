@@ -154,7 +154,7 @@ namespace illh
      * @return rotated pixel id
      */
     unsigned 
-    eq2loc_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap);
+    eq2log_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap);
 
 
 }

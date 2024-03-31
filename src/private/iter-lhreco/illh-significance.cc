@@ -159,7 +159,6 @@ int main(int argc, char* argv[])
     SkyMap largeDiffCRmap;
     largeDiffCRmap.SetNside( dat.Nside(), dat.Scheme());
     largeDiffCRmap.fill(0.);
-//
 
 //
 
