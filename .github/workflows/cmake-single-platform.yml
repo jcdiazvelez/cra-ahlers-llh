@@ -24,7 +24,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: boost
-      run: sudo apt-get -y update &&  sudo apt-get -yq install libboost-dev
+      run: sudo apt-get -y update &&  sudo apt-get -yq install libboost-atomic1.67-dev
 
     - name: cfitsio
       run: sudo apt-get -y update &&  sudo apt-get -yq install libcfitsio-dev
