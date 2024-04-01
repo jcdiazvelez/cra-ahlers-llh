@@ -5,16 +5,7 @@ name: CMake on a single platform
 on:
   push:
     branches: [ "main" ]
-        paths:
-      - '**/CMakeLists.txt'
-      - '*/public/**'
-      - '*/private/**'
-      - '**/*.cmake'
-      - '**/*.py'
-      - '**/*.sh'
-      - '**/*.in'
-      - '.github/workflows/*'
-      - '!docs/**'
+
   pull_request:
     branches: [ "main" ]
 
