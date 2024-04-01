@@ -26,6 +26,9 @@ jobs:
     - name: boost
       run: sudo apt-get -y update &&  sudo apt-get -yq install libboost-dev
 
+    - name: cfitsio
+      run: sudo apt-get -y update &&  sudo apt-get -yq install libcfitsio-dev
+
     - name: healpix
       run: sudo apt-get -y update &&  sudo apt-get -yq install libhealpix-cxx-dev
       
