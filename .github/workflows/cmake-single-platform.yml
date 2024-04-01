@@ -27,7 +27,7 @@ jobs:
       run: sudo apt-get -y update &&  sudo apt-get -yq install libboost-all-dev
 
     - name: update_cmake
-      run: sudo apt-get y update && sudo apt-get -yq install cmake
+      run: sudo apt-get -y update && sudo apt-get -yq install cmake
 
     - name: cfitsio
       run: sudo apt-get -y update &&  sudo apt-get -yq install libcfitsio-dev
