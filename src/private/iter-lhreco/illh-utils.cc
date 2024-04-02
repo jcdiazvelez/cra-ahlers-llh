@@ -266,6 +266,9 @@ void illh::save_iter(
             fs::remove( expmapname.str() ); 
     } 
     fitsOut.create(expmapname.str().c_str()); 
+    fitsOut.add_comment(std::string("LLH Exposure Map"));
+    fitsOut.set_key("COORDS" , std::string("L"), "Local coordinate system");
+    fitsOut.set_key("TTYPE1", std::string("acceptance"), "Normalized detector acceptance");
     write_Healpix_map_to_fits(fitsOut, Emap, MyDTYPE);
     fitsOut.close();
 }

@@ -705,7 +705,7 @@ int main(int argc, char* argv[])
                 done = true;
             }
 
-            if (iteration >= nIterations-1)
+            if (iteration >= nIterations)
             {
                 log_info("Reached max iterations");
                 done = true;
@@ -730,6 +730,11 @@ int main(int argc, char* argv[])
                 }
                 fitshandle fitsOut; 
                 fitsOut.create(namefits.str().c_str()); 
+                fitsOut.add_comment("LLH reco Map");
+                fitsOut.set_key("COORDS" , std::string("C"), "Equatorial coordinate system");
+                fitsOut.set_key("TTYPE1", std::string("data"), "binned data counts");
+                fitsOut.set_key("TTYPE2", std::string("background"), "llh reconstructed background");
+                fitsOut.set_key("TTYPE3", std::string("relint"), "(alm-smoothed) relative intensity");
                 write_Healpix_map_to_fits(fitsOut, dataMap, bkgMap, diffCRmapNormed, MyDTYPE);
                 fitsOut.close(); 
 
@@ -741,6 +746,11 @@ int main(int argc, char* argv[])
                         fs::remove(nameSIGfits.str() );
                 }
                 fitsOut.create(nameSIGfits.str().c_str()); 
+                fitsOut.add_comment(std::string("LLH stat Map"));
+                fitsOut.set_key("COORDS" , std::string("C"), "Equatorial coordinate system");
+                fitsOut.set_key("TTYPE1", std::string("sigma"), "statistical unsertainty");
+                fitsOut.set_key("TTYPE2", std::string("lima"), "Li-Ma significance (squared)");
+                fitsOut.set_key("TTYPE3", std::string("mu"), "statistical count expectation");
                 write_Healpix_map_to_fits(fitsOut, errormap, variancemap, expectationMap, MyDTYPE);
                 fitsOut.close(); 
 
