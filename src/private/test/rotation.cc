@@ -18,16 +18,20 @@ double angular_distance(pointing p0, pointing p1)
    return acos(cos(p0.theta)*cos(p1.theta) + sin(p0.theta)*sin(p1.theta)*cos(p0.phi-p1.phi));
 }
 
-int main() {
-
+int main(int argc, char* argv[])
+{
+  unsigned nside(64);
+  if (argc > 1)
+    nside = atoi(argv[1]);
+  std::cout << "Using NSide = " << nside << std::endl;
 
   double latitude = 18.0*M_PI/180.;
   double longitude = -97.0*M_PI/180.;
 
-  unsigned nside(64);
   unsigned npix = 12*nside*nside;
   float pixel_area = 4*M_PI/npix;
   float pixel_size = sqrt(pixel_area);
+
 
   SkyMap CRmap;
   CRmap.SetNside(nside, RING);
@@ -50,6 +54,11 @@ int main() {
 
   for (auto i : integers) 
   {
+    if (i>=npix)
+    {
+        continue;
+    }
+
     j = illh::eq2loc_idx(i, timeidx, latitude, longitude, nTimesteps, CRmap);
     k = illh::loc2eq_idx(j, timeidx, latitude, longitude, nTimesteps, CRmap);
 

@@ -461,19 +461,6 @@ int main(int argc, char* argv[])
     }
 
 
-    // write n_a
-    /**
-    fitshandle fitsOut; 
-    stringstream datamapname;
-    datamapname << foldername << boost::format("/data_%s_%d_%d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps;
-    if (fs::exists(datamapname.str()) ) {
-            fs::remove( datamapname.str() );
-    }
-    fitsOut.create(datamapname.str().c_str());
-    write_Healpix_map_to_fits(fitsOut, dataMap, MyDTYPE);
-    fitsOut.close();
-    */
-
     //*****************************************************************************
     ////// Iterate //////////////////////////////////////////////////////////////// 
     //*****************************************************************************
@@ -602,10 +589,9 @@ int main(int argc, char* argv[])
             SkyMap diffCRmapNormed; 
             diffCRmapNormed.SetNside(nsideOut, RING); 
             diffCRmapNormed.fill(0.);
-
             for (unsigned int i=0; i < npix;i++ ) 
             { 
-                    diffCRmapNormed[i] = diffCRmap[i]/isovalue; 
+                diffCRmapNormed[i] = diffCRmap[i]/isovalue; 
             } 
             
                    

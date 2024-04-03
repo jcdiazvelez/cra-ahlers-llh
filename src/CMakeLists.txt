@@ -56,9 +56,23 @@ enable_testing()
 
 # define tests
 add_test(
-  NAME rotation_test
-  COMMAND $<TARGET_FILE:rotation-test>
+  NAME rotation_test_128
+  COMMAND $<TARGET_FILE:rotation-test> 128
   )
+add_test(
+  NAME rotation_test_64
+  COMMAND $<TARGET_FILE:rotation-test> 64
+  )
+add_test(
+  NAME rotation_test_32
+  COMMAND $<TARGET_FILE:rotation-test> 32
+  )
+add_test(
+  NAME rotation_test_16
+  COMMAND $<TARGET_FILE:rotation-test> 16
+  )
+
+
 
 
 if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
