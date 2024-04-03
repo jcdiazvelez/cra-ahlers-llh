@@ -442,7 +442,7 @@ int main(int argc, char* argv[])
                 {
                     DetectorPtr det = *det_it;
                     int j; 
-                    j = illh::eq2log_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                    j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
                     if ((*det->Emap0)[j] > 0.0 ){ 
                         nEvents += (*det->Nmap[timeidx])[j];
                         nBkg    += det->norm[timeidx]*(*det->Emap0)[j]; 
@@ -499,7 +499,7 @@ int main(int argc, char* argv[])
                     for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
                     {
                             DetectorPtr det = *det_it;
-                            int j = illh::eq2log_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                            int j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
                             if (det->FOV[j] && ((*det->Emap)[j] > 0.0)) { 
                                 nEvents += (*det->Nmap[timeidx])[j]; 
                                 nBkg += det->norm[timeidx]*(*det->Emap)[j]; 
@@ -640,7 +640,7 @@ int main(int argc, char* argv[])
                         { 
                             DetectorPtr det = *det_it;
                             //rotation from Equatorial (ra,dec) to local (theta,phi)
-                            int j = illh::eq2log_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
+                            int j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
 
                             // global significance 
                             double ej = (*det->Emap)[j];

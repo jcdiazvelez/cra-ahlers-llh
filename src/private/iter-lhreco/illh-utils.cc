@@ -285,7 +285,7 @@ void illh::save_iter(
  * @return rotated pixel id
  */
 unsigned 
-illh::eq2log_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap)
+illh::eq2loc_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap)
 { 
         vec3 v =  CRmap.pix2vec(i); 
         double clat = cos(lat); 

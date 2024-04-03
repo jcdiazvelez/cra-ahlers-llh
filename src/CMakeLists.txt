@@ -33,12 +33,32 @@ add_executable(multi-llh
             private/iter-lhreco/illh-utils.cc
             )
 
+add_executable(rotation-test
+            private/test/rotation.cc
+            private/iter-lhreco/illh-utils.cc
+            )
+
+
 
 
 target_link_libraries(multi-llh 
                 ${CFITSIO_LIBRARIES} 
                 ${HEALPIX-CXX_LIBRARIES} 
                 ${Boost_LIBRARIES})
+
+target_link_libraries(rotation-test PRIVATE
+                ${CFITSIO_LIBRARIES} 
+                ${HEALPIX-CXX_LIBRARIES} 
+                ${Boost_LIBRARIES})
+
+
+enable_testing()
+
+# define tests
+add_test(
+  NAME rotation_test
+  COMMAND $<TARGET_FILE:rotation-test>
+  )
 
 
 if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
