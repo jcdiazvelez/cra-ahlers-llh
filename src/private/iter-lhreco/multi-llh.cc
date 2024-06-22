@@ -1,10 +1,6 @@
 /**
  * multi-llh
- *
- * @version $Id: $
- *
- * @date: $Date: $
- *
+ * * @version $Id: $ * * @date: $Date: $ *
  * @author Juan Carlos Diaz-Velez <juan.diazvelez@alumnos.udg.mx>
  *
 */
@@ -223,6 +219,7 @@ int main(int argc, char* argv[])
     bool iso;
     bool done(false);
     unsigned int seed;
+    double smoothing_radius(1.0);
 
     po::options_description desc("Options"); 
     po::variables_map vm; 
@@ -243,6 +240,7 @@ int main(int argc, char* argv[])
              ("seed", po::value<unsigned int>(&seed)->default_value(123), "RNG seed")
              ("iso", po::bool_switch(&iso)->default_value(false), "make isotropic map")
 #endif
+             ("smooting-radius", po::value<double>(&smoothing_radius)->default_value(1.0), "Smoothing radius (deg) for significance map")
 			 ("config", po::value<string>(&config_path)->default_value("config.json"), "JSON config");
      
         po::store(po::command_line_parser(argc, argv).options(desc).run(), vm); 
@@ -259,6 +257,8 @@ int main(int argc, char* argv[])
         
         // Iterator over all detectors
         npix = 12*nsideOut*nsideOut; 
+
+        smoothing_radius *= M_PI/180.;
 
         for (pt::ptree::value_type &detector: root.get_child("detectors"))
         {
@@ -596,14 +596,25 @@ int main(int argc, char* argv[])
             
                    
             // calculate statistical significance : S_a^(n)
-            SkyMap variancemap; 
-            variancemap.SetNside(nsideOut, RING);
-            variancemap.fill(0.);
+            SkyMap significancemap; 
+            significancemap.SetNside(nsideOut, RING);
+            significancemap.fill(0.);
 
             // calculate statistical error: 
             SkyMap errormap; 
+
             errormap.SetNside(nsideOut, RING);
             errormap.fill(0.);
+
+            SkyMap muoff; 
+            muoff.SetNside(nsideOut, RING);
+            muoff.fill(0.);
+            SkyMap muon; 
+            muon.SetNside(nsideOut, RING);
+            muon.fill(0.);
+            SkyMap Na; 
+            Na.SetNside(nsideOut, RING);
+            Na.fill(0.);
 
             // calculate expectation mu
             SkyMap expectationMap; 
@@ -615,7 +626,6 @@ int main(int argc, char* argv[])
             log_info("Significance " << iteration << " ...");
             for (unsigned int i=0; i < npix;i++ ) 
             { 
-                    double musum(0.);
                     for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
                     { 
                         double mu(0.);
@@ -636,39 +646,56 @@ int main(int argc, char* argv[])
                             double Njt_temp = (*det->Nmap[timeidx])[j];
 
                             if (ej0*nt0 > 0.0 && ej*nt > 0.0) { 
-                                variancemap[i] += -2.0*(diffCRmap[i]+CRmap[i])*ej*nt; 
-                                variancemap[i] += 2.0*CRmap[i]*ej0*nt0; 
-                                double temp1 = ej/ej0*nt/nt0;
-                                variancemap[i] += 2.0*Njt_temp*log(temp1*(1.0+diffCRmap[i]/CRmap[i])); 
-
                                 mu += nt*ej;
                                 mu0 += nt0*ej0;
                                 Njt += Njt_temp;
-                                musum += mu;
                             }
                         }
-                        if (mu>0 && mu0>0)
+                        if ((mu>0) && (mu0>0))
                         {
                             mu *= (diffCRmap[i]+CRmap[i]);
                             mu0 *= CRmap[i];
-                            llhtemp+= Njt*(mu*log(mu)-mu0*log(mu0));
+                            muon[i] += mu;
+                            muoff[i] += mu0;
+                            Na[i] += Njt;
+                            llhtemp += Njt*(mu*log(mu)-mu0*log(mu0));
                             errormap[i]+=pow(mu-Njt,2);
                         }
                     }
-                    if (musum> 0)
+                    if (muon[i]> 0)
                     {
-                      errormap[i] = sqrt(errormap[i])/musum;
-                      expectationMap[i]=musum;
+                      errormap[i] = sqrt(errormap[i])/muon[i];
+                      expectationMap[i]=muon[i];
                     }
             }
 
-            // cleaning out nonsensical values
+            log_info("Smoothing radius: "<<smoothing_radius*180/M_PI << " degrees");
             for (unsigned int i=0; i < npix;i++ ) 
-            {
-                if (variancemap[i] < 0)
+            { 
+                std::vector<int> listpix;
+                pointing dir = CRmap.pix2ang(i);
+                CRmap.query_disc(dir, smoothing_radius, listpix);
+
+                double muontmp(0);
+                double muofftmp(0);
+                double Natmp(0);
+                double smoothed_ri(0);
+                for(const int& k : listpix) 
                 {
-                    variancemap[i] = 0.;
+
+                    if (muoff[k]) {
+                        muontmp += muon[k];
+                        muofftmp += muoff[k];
+                        Natmp += Na[k];
+                        smoothed_ri += diffCRmapNormed[k];
+                    }
+                } 
+                if ((muontmp <= 0) || (muofftmp <= 0)) {
+                    continue;
                 }
+                double vtemp = -muontmp + muofftmp + Natmp*log(muontmp/muofftmp);
+                significancemap[i] = sqrt(2.0*abs(vtemp));
+                significancemap[i] *= (smoothed_ri < 0 ? -1 : 1);
             }
 
             log_info("Finished iteration " << iteration << " of " << nIterations << "...");
@@ -737,7 +764,7 @@ int main(int argc, char* argv[])
                 fitsOut.set_key("TTYPE1", std::string("sigma"), "statistical unsertainty");
                 fitsOut.set_key("TTYPE2", std::string("lima"), "Li-Ma significance (squared)");
                 fitsOut.set_key("TTYPE3", std::string("mu"), "statistical count expectation");
-                write_Healpix_map_to_fits(fitsOut, errormap, variancemap, expectationMap, MyDTYPE);
+                write_Healpix_map_to_fits(fitsOut, errormap, significancemap, expectationMap, MyDTYPE);
                 fitsOut.close(); 
 
          
