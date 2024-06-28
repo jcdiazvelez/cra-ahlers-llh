@@ -57,6 +57,7 @@ Options:
   -f [ --fluctuate ]               add random fluctuations
   --seed arg (=123)                RNG seed
   --iso                            make isotropic map
+  --smoothing-radius arg (=1)      Smoothing radius (deg) for significance map
   --config arg (=config.json)      JSON config
 ````
 
@@ -86,7 +87,7 @@ the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_syst
 **Output files:**
 The output files will be named:
 * ```"CR_{detector(s)}__64_360_iteration{iter}.fits.gz"```: (data $d_i$, background $b_i$, $a_{\ell m}$-smoothed relative intensity)
-* ```"variance_{detector(s)}_{nside}_{nTbins}_iteration{iter}.fits.gz"```: (relative error $\sigma_i/\mu_i$, Li-Ma significance (squared) $\sigma^2_{i,\mathrm{Li-Ma}}$ , expectation $\mu$)
+* ```"variance_{detector(s)}_{nside}_{nTbins}_iteration{iter}.fits.gz"```: (relative error $\sigma_i/\mu_i$, signed Li-Ma significance $\sigma_{i,\mathrm{Li-Ma}}$ , expectation $\mu$)
 * ```"llhratio_{detector(s)}_{nside}_{nTbins}_iteration{iter}.dat"```: ($\mathrm{llh}_n - \mathrm{llh}_0$)
 * ```"exposure_{detector}_{nside}_{nTbins}_iteration{iter}.fits.gz"```: ($A_i$: one file per dectector)
 * ```"norm_{detector}_{nside}_{nTbins}_iteration{iter}.dat"```: (<math>$N_\tau$</math>: one file per detector)
