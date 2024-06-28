@@ -121,7 +121,8 @@ void illh::loadMap(
     unsigned nsideIn, 
     unsigned nsideOut, 
     std::string prefix,
-    std::string suffix )
+    std::string suffix,
+    bool weights)
 {
     fitshandle handle;
     std::string cuts;
@@ -135,6 +136,10 @@ void illh::loadMap(
 
 
 
+
+    if (weights) { 
+        log_info("reading weighted maps");
+    }
     // Iterate over time bins and read local maps
     for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
     {
@@ -187,7 +192,7 @@ void illh::loadMap(
 
         handle.goto_hdu(2);
         SkyMapPtr locMap(new SkyMap);
-        read_Healpix_map_from_fits(handle, *locMap, 1);
+        read_Healpix_map_from_fits(handle, *locMap, weights ? 2 : 1);
         handle.close();
 
         if (timeidx == timeidxMin) {

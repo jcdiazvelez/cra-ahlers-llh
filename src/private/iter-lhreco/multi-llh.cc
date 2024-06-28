@@ -172,6 +172,8 @@ class Detector {
     std::string prefix;
     std::string suffix;
 
+    bool weights;
+
     std::vector<SkyMapPtr> Nmap;
 
     // initial exposure : A_i^(0)
@@ -240,7 +242,7 @@ int main(int argc, char* argv[])
              ("seed", po::value<unsigned int>(&seed)->default_value(123), "RNG seed")
              ("iso", po::bool_switch(&iso)->default_value(false), "make isotropic map")
 #endif
-             ("smooting-radius", po::value<double>(&smoothing_radius)->default_value(1.0), "Smoothing radius (deg) for significance map")
+             ("smoothing-radius", po::value<double>(&smoothing_radius)->default_value(1.0), "Smoothing radius (deg) for significance map")
 			 ("config", po::value<string>(&config_path)->default_value("config.json"), "JSON config");
      
         po::store(po::command_line_parser(argc, argv).options(desc).run(), vm); 
@@ -280,6 +282,7 @@ int main(int argc, char* argv[])
 
             det->prefix = detector.second.get<std::string>("prefix");
             det->suffix = detector.second.get<std::string>("suffix");
+            det->weights = detector.second.get<bool>("weights",false);
 
             // initial exposure : A_i^(0)
             det->Emap0 = SkyMapPtr(new SkyMap);
@@ -331,7 +334,7 @@ int main(int argc, char* argv[])
         //*****************************************************************************
         ////// Read input maps //////////////////////////////////////////////////////// 
         //*****************************************************************************
-        illh::loadMap( det->Nmap, timeidxMin, timeidxMax, nTimesteps, det->nside, nsideOut, det->prefix , det->suffix);
+        illh::loadMap( det->Nmap, timeidxMin, timeidxMax, nTimesteps, det->nside, nsideOut, det->prefix , det->suffix, det->weights);
 
         if (randfluct && iso)
             log_fatal("ranfluct and iso are mutually exclusive!!!");

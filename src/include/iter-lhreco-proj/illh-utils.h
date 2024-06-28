@@ -114,7 +114,8 @@ namespace illh
         unsigned nsideIn, 
         unsigned nsideOut, 
         std::string prefix,
-        std::string suffix );
+        std::string suffix, 
+        bool weights=false);
 
     /*
      * save_iter - save results of iteration to FITS file
