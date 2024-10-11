@@ -276,7 +276,7 @@ int main(int argc, char* argv[])
             det->latitude = detector.second.get<double>("latitude")*M_PI/180.;
 
             log_info("Sector  ("<<det->name<<"): Latitude=" << det->latitude*180./M_PI<< 
-                    ",  Longitude=" << det->longitude*190./M_PI);
+                    ",  Longitude=" << det->longitude*180./M_PI);
 
             det->thetamax = detector.second.get<double>("thetamax")*M_PI/180.;
 
