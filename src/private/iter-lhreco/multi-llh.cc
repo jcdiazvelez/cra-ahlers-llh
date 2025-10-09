@@ -218,6 +218,7 @@ int main(int argc, char* argv[])
     unsigned int npix;
     bool randfluct;
     bool save_iter_flag;
+    bool force_iter(false);
     bool iso;
     bool done(false);
     unsigned int seed;
@@ -236,6 +237,7 @@ int main(int argc, char* argv[])
              ("timestepmin", po::value<unsigned int>(&timeidxMin)->default_value(0), "First time step to use") 
              ("timestepmax", po::value<unsigned int>(&timeidxMax)->default_value(0), "Last time step to use") 
              ("iterations", po::value<unsigned int>(&nIterations)->default_value(20), "Number of iterations") 
+             ("force-iter", po::bool_switch(&force_iter)->default_value(false), "force iterations")
              ("save-iter", po::bool_switch(&save_iter_flag)->default_value(false), "save each iteration")
 #if __cplusplus > 199711L
              ("fluctuate,f", po::bool_switch(&randfluct)->default_value(false), "add random fluctuations")
@@ -276,7 +278,7 @@ int main(int argc, char* argv[])
             det->latitude = detector.second.get<double>("latitude")*M_PI/180.;
 
             log_info("Sector  ("<<det->name<<"): Latitude=" << det->latitude*180./M_PI<< 
-                    ",  Longitude=" << det->longitude*190./M_PI);
+                    ",  Longitude=" << det->longitude*180./M_PI);
 
             det->thetamax = detector.second.get<double>("thetamax")*M_PI/180.;
 
@@ -682,7 +684,6 @@ int main(int argc, char* argv[])
                 double muontmp(0);
                 double muofftmp(0);
                 double Natmp(0);
-                double smoothed_ri(0);
                 for(const int& k : listpix) 
                 {
 
@@ -690,12 +691,12 @@ int main(int argc, char* argv[])
                         muontmp += muon[k];
                         muofftmp += muoff[k];
                         Natmp += Na[k];
-                        smoothed_ri += diffCRmapNormed[k];
                     }
                 } 
                 if ((muontmp <= 0) || (muofftmp <= 0)) {
                     continue;
                 }
+                double smoothed_ri = muontmp/muofftmp - 1;
                 double vtemp = -muontmp + muofftmp + Natmp*log(muontmp/muofftmp);
                 significancemap[i] = sqrt(2.0*abs(vtemp));
                 significancemap[i] *= (smoothed_ri < 0 ? -1 : 1);
@@ -715,7 +716,7 @@ int main(int argc, char* argv[])
 
             llh.push_back(llhtemp);
 
-            if ((llh.size()>2) && ((llhtemp-llhprev) < 1e-4))
+            if ((llh.size()>2) && ((llhtemp-llhprev) < 1e-4) && !force_iter)
             {
                 log_info("Converged: llh ratio n, n-1: " << 2*(llhtemp-llhprev));
                 done = true;
