@@ -221,6 +221,7 @@ int main(int argc, char* argv[])
     bool force_iter(false);
     bool iso;
     bool done(false);
+    bool maxllh(false);
     unsigned int seed;
     double smoothing_radius(1.0);
 
@@ -476,6 +477,7 @@ int main(int argc, char* argv[])
     diffCRmap.fill(0.);
 
     std::vector<double> llh;
+    std::vector<double> dipole_amp;
 
     for (unsigned int iteration = 1; iteration <= nIterations; iteration++)
     { 
@@ -720,6 +722,7 @@ int main(int argc, char* argv[])
             {
                 log_info("Converged: llh ratio n, n-1: " << 2*(llhtemp-llhprev));
                 done = true;
+                maxllh = true;
             }
 
             if (iteration >= nIterations)
@@ -740,7 +743,11 @@ int main(int argc, char* argv[])
 
                 // write relative intensity map I_a^(n)
                 stringstream namefits;
-                namefits << foldername << boost::format("/CR_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
+                if (maxllh) { 
+                    namefits << foldername << boost::format("/CR_%s_%d_%d_max.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps;
+                } else { 
+                    namefits << foldername << boost::format("/CR_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
+                }
 
                 if (fs::exists(namefits.str()) ) { 
                         fs::remove( namefits.str() ); 
