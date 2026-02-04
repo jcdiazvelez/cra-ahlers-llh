@@ -6,6 +6,12 @@
 */
 
 #include <iter-lhreco-proj/illh-utils.h>
+#include <util/utils.h>
+
+#if __cplusplus > 199711L
+#include <thread>
+#include <mutex>
+#endif 
 
 #ifdef ICECUBE
 #include <healpix-cxx/healpix/alm.h>
@@ -65,6 +71,7 @@
 #include <hawcnest/Logging.h>
 #include <hawcnest/CommandLineConfigurator.h>
 #include <detector-service/ConfigDirDetectorService.h>
+
 
 
 
@@ -159,46 +166,6 @@ void isotropic(std::vector<SkyMapPtr>& Nmap, boost::mt19937 rng)
 
 
 
-class Detector {
-  public:         
-    std::string name; 
-    unsigned int nside; 
-    double longitude; 
-    double latitude; 
-    double thetamax; 
-
-    double totsector;
-
-    std::string prefix;
-    std::string suffix;
-
-    bool weights;
-
-    std::vector<SkyMapPtr> Nmap;
-
-    // initial exposure : A_i^(0)
-    SkyMapPtr Emap0;
-
-    // n^th exposure : A_i^(n)
-    SkyMapPtr Emap;
-
-
-    //// window function of FOV map : F_a
-    std::vector<bool> FOV;
-
-    // initial normalization : N_tau^(0)
-    std::vector<double> norm0;
-
-    // n^th normalization : N_tau^(n)
-    std::vector<double> norm;
-};
-
-
-
-
-typedef boost::shared_ptr<Detector> DetectorPtr; // Detector shared pointer
-
-
 int main(int argc, char* argv[])
 {
     // declare all the variables
@@ -213,6 +180,7 @@ int main(int argc, char* argv[])
     unsigned int timeidxMin;
     unsigned int timeidxMax;
     unsigned int nIterations;
+    unsigned int nthread;
     unsigned int nSectors;
     unsigned int nsideOut;
     unsigned int npix;
@@ -227,6 +195,7 @@ int main(int argc, char* argv[])
 
     po::options_description desc("Options"); 
     po::variables_map vm; 
+
     
     try { 
        // Define and parse the program options 
@@ -246,6 +215,7 @@ int main(int argc, char* argv[])
              ("iso", po::bool_switch(&iso)->default_value(false), "make isotropic map")
 #endif
              ("smoothing-radius", po::value<double>(&smoothing_radius)->default_value(1.0), "Smoothing radius (deg) for significance map")
+             ("threads,t", po::value<unsigned int>(&nthread)->default_value(1), "Number of threads")
 			 ("config", po::value<string>(&config_path)->default_value("config.json"), "JSON config");
      
         po::store(po::command_line_parser(argc, argv).options(desc).run(), vm); 
@@ -263,6 +233,7 @@ int main(int argc, char* argv[])
         // Iterator over all detectors
         npix = 12*nsideOut*nsideOut; 
 
+        log_info("Smoothing radius: " << smoothing_radius << " degrees");
         smoothing_radius *= M_PI/180.;
 
         for (pt::ptree::value_type &detector: root.get_child("detectors"))
@@ -284,6 +255,7 @@ int main(int argc, char* argv[])
             det->thetamax = detector.second.get<double>("thetamax")*M_PI/180.;
 
             det->prefix = detector.second.get<std::string>("prefix");
+            det->multifits = detector.second.get<bool>("multifits", false);
             det->suffix = detector.second.get<std::string>("suffix");
             det->weights = detector.second.get<bool>("weights",false);
 
@@ -318,6 +290,10 @@ int main(int argc, char* argv[])
                       << e.what() << ", application will now exit" << std::endl; 
             return 2; 
     } 
+    std::thread threads[nthread];
+    std::mutex pmutex;
+    unsigned int tbins_per_thread= nTimesteps/nthread;
+    unsigned int pix_per_thread= npix/nthread;
  
     //*****************************************************************************
     ///// Initialize ///////////////////////////////////////////////////////////// 
@@ -337,7 +313,12 @@ int main(int argc, char* argv[])
         //*****************************************************************************
         ////// Read input maps //////////////////////////////////////////////////////// 
         //*****************************************************************************
-        illh::loadMap( det->Nmap, timeidxMin, timeidxMax, nTimesteps, det->nside, nsideOut, det->prefix , det->suffix, det->weights);
+        if ( det->multifits )  {
+            cout << "reading multifits"<<endl;
+            illh::loadMap( det->Nmap, nTimesteps, det->nside, nsideOut, det->prefix , det->weights);
+        } else {
+            illh::loadMap( det->Nmap, timeidxMin, timeidxMax, nTimesteps, det->nside, nsideOut, det->prefix , det->suffix, det->weights);
+        } 
 
         if (randfluct && iso)
             log_fatal("ranfluct and iso are mutually exclusive!!!");
@@ -481,30 +462,28 @@ int main(int argc, char* argv[])
 
     for (unsigned int iteration = 1; iteration <= nIterations; iteration++)
     { 
-            log_info("Iter " << iteration);
+
+            //log_info("Iter " << iteration);
+            cout << "Iter "<< iteration ;
 
             // calculate new CR anisotropy
-            for (unsigned int i=0; i<npix;i++) 
-            { 
-                double nEvents = 0.0; 
-                double nBkg = 0.0; 
-                for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
-                { 
-                    for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
-                    {
-                            DetectorPtr det = *det_it;
-                            int j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
-                            if (det->FOV[j] && ((*det->Emap)[j] > 0.0)) { 
-                                nEvents += (*det->Nmap[timeidx])[j]; 
-                                nBkg += det->norm[timeidx]*(*det->Emap)[j]; 
-                            } 
-                    }
-                }
-                if (nBkg > 0.0) { 
-                    diffCRmap[i] = nEvents/nBkg-CRmap[i]; 
-                    bkgMap[i] = nBkg;
-                } 
-            } 
+            //for (unsigned int i=0; i<npix;i++) {
+            for (unsigned int tid = 0; tid < nthread-1; tid++) 
+            {
+              threads[tid] = std::thread( illh::mlh_iteration,
+                        pix_per_thread*tid, pix_per_thread*(tid+1), nTimesteps, 
+                        std::ref(detectors), std::ref(diffCRmap), std::ref(CRmap), std::ref(bkgMap),
+                        std::ref(pmutex));
+            }
+            int tid=nthread-1;
+            threads[tid] = std::thread( illh::mlh_iteration,
+                        pix_per_thread*tid, npix, nTimesteps, 
+                        std::ref(detectors), std::ref(diffCRmap), std::ref(CRmap), std::ref(bkgMap),
+                        std::ref(pmutex));
+
+            //log_info("joining threads");
+            for (int tid = 0; tid < nthread; tid++) 
+                threads[tid].join();
 
             // remove m=0 multipole moments :
             //const int LMAX=180;
@@ -527,31 +506,44 @@ int main(int argc, char* argv[])
             alm2map( alm, diffCRmap);
 
             // calculate new normalization 
-            for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
-            { 
-                for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
-                { 
-                    DetectorPtr det = *det_it;
-                    double nEvents = 0.0; 
-                    double nBkg = 0.0; 
-                
-                    // Integrate over all (rotated) pixels 
-                    for (unsigned int i=0; i<npix; i++) 
-                    { 
-                        int j = illh::loc2eq_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
-                        if (det->FOV[i] && ((*det->Emap0)[i] > 0.0)) { 
-                                nEvents += (*det->Nmap[timeidx])[i];
-                                nBkg += (*det->Emap)[i]*(CRmap[j]+diffCRmap[j]);
-                        } 
-                    } 
-                    if (nBkg > 0.0) { 
-                        det->norm[timeidx] = nEvents/nBkg; 
-                    } 
-                } 
+            for (unsigned int tid = 0; tid < nthread-1; tid++) 
+            {
+              threads[tid] = std::thread( illh::mlh_normalization,
+                        tbins_per_thread*tid+timeidxMin, tbins_per_thread*(tid+1)+timeidxMin, nTimesteps, 
+                        std::ref(detectors), std::ref(diffCRmap), std::ref(CRmap), 
+                        std::ref(pmutex));
             }
+            tid=nthread-1;
+            threads[tid] = std::thread( illh::mlh_normalization,
+                        tbins_per_thread*tid+timeidxMin, timeidxMax, nTimesteps, 
+                        std::ref(detectors), std::ref(diffCRmap), std::ref(CRmap), 
+                        std::ref(pmutex));
+
+            //log_info("joining threads");
+            for (int tid = 0; tid < nthread; tid++) 
+                threads[tid].join();
+
 
             // caluculate new acceptance
-            for (unsigned int i=0; i<npix; i++) 
+            for (unsigned int tid = 0; tid < nthread-1; tid++) 
+            {
+              threads[tid] = std::thread( illh::mlh_acceptance,
+                        pix_per_thread*tid, pix_per_thread*(tid+1), nTimesteps, 
+                        std::ref(detectors), std::ref(diffCRmap), std::ref(CRmap), 
+                        std::ref(pmutex));
+            }
+            tid=nthread-1;
+            threads[tid] = std::thread( illh::mlh_acceptance,
+                        pix_per_thread*tid, npix, nTimesteps, 
+                        std::ref(detectors), std::ref(diffCRmap), std::ref(CRmap), 
+                        std::ref(pmutex));
+
+            //log_info("joining threads");
+            for (int tid = 0; tid < nthread; tid++) 
+                threads[tid].join();
+
+
+            /*for (unsigned int i=0; i<npix; i++) 
             {
                 for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
                 {
@@ -576,7 +568,7 @@ int main(int argc, char* argv[])
                         (*det->Emap)[i] = 0.0; 
                     }
                 }
-            }
+            }*/
             
             // Renormalize
             for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
@@ -630,91 +622,70 @@ int main(int argc, char* argv[])
 
             double llhtemp = 0;
             
-            log_info("Significance " << iteration << " ...");
-            for (unsigned int i=0; i < npix;i++ ) 
-            { 
-                    for (unsigned int timeidx=timeidxMin; timeidx < timeidxMax;timeidx++ ) 
-                    { 
-                        double mu(0.);
-                        double mu0(0.);
-                        double Njt(0.);
-                        double error = 0;
-                        for (det_it = detectors.begin(); det_it != detectors.end(); det_it++)
-                        { 
-                            DetectorPtr det = *det_it;
-                            //rotation from Equatorial (ra,dec) to local (theta,phi)
-                            int j = illh::eq2loc_idx(i, timeidx, det->latitude, det->longitude, nTimesteps, CRmap);
-
-                            // global significance 
-                            double ej = (*det->Emap)[j];
-                            double ej0 = (*det->Emap0)[j];
-                            double nt = det->norm[timeidx];
-                            double nt0 = det->norm0[timeidx];
-                            double Njt_temp = (*det->Nmap[timeidx])[j];
-
-                            if (ej0*nt0 > 0.0 && ej*nt > 0.0) { 
-                                mu += nt*ej;
-                                mu0 += nt0*ej0;
-                                Njt += Njt_temp;
-                            }
-                        }
-                        if ((mu>0) && (mu0>0))
-                        {
-                            mu *= (diffCRmap[i]+CRmap[i]);
-                            mu0 *= CRmap[i];
-                            muon[i] += mu;
-                            muoff[i] += mu0;
-                            Na[i] += Njt;
-                            llhtemp += Njt*(mu*log(mu)-mu0*log(mu0));
-                            errormap[i]+=pow(mu-Njt,2);
-                        }
-                    }
-                    if (muon[i]> 0)
-                    {
-                      errormap[i] = sqrt(errormap[i])/muon[i];
-                      expectationMap[i]=muon[i];
-                    }
+            //log_info("Significance " << iteration << " ...");
+            for (unsigned int tid = 0; tid < nthread-1; tid++) 
+            {
+              threads[tid] = std::thread( illh::mlh_significance,
+                        pix_per_thread*tid, pix_per_thread*(tid+1), nTimesteps, 
+                        std::ref(detectors), std::ref(diffCRmap), std::ref(CRmap), std::ref(errormap),
+                        std::ref(expectationMap), std::ref(muon), std::ref(muoff),
+                        std::ref(Na), std::ref(llhtemp),
+                        std::ref(pmutex));
             }
+            tid=nthread-1;
+            threads[tid] = std::thread( illh::mlh_significance,
+                        pix_per_thread*tid, npix, nTimesteps, 
+                        std::ref(detectors), std::ref(diffCRmap), std::ref(CRmap), std::ref(errormap),
+                        std::ref(expectationMap), std::ref(muon), std::ref(muoff),
+                        std::ref(Na), std::ref(llhtemp),
+                        std::ref(pmutex));
 
-            log_info("Smoothing radius: "<<smoothing_radius*180/M_PI << " degrees");
-            for (unsigned int i=0; i < npix;i++ ) 
-            { 
-                std::vector<int> listpix;
-                pointing dir = CRmap.pix2ang(i);
-                CRmap.query_disc(dir, smoothing_radius, listpix);
+            //log_info("joining threads");
+            for (int tid = 0; tid < nthread; tid++) 
+                threads[tid].join();
 
-                double muontmp(0);
-                double muofftmp(0);
-                double Natmp(0);
-                for(const int& k : listpix) 
-                {
 
-                    if (muoff[k]) {
-                        muontmp += muon[k];
-                        muofftmp += muoff[k];
-                        Natmp += Na[k];
-                    }
-                } 
-                if ((muontmp <= 0) || (muofftmp <= 0)) {
-                    continue;
-                }
-                double smoothed_ri = muontmp/muofftmp - 1;
-                double vtemp = -muontmp + muofftmp + Natmp*log(muontmp/muofftmp);
-                significancemap[i] = sqrt(2.0*abs(vtemp));
-                significancemap[i] *= (smoothed_ri < 0 ? -1 : 1);
+            for (unsigned int tid = 0; tid < nthread-1; tid++) 
+            {
+              threads[tid] = std::thread( illh::mlh_smooth,
+                        pix_per_thread*tid, pix_per_thread*(tid+1), nTimesteps, 
+                        smoothing_radius,
+                        std::ref(significancemap), 
+                        std::ref(muon), std::ref(muoff),
+                        std::ref(Na), 
+                        std::ref(pmutex));
+
+
             }
+            tid=nthread-1;
+            threads[tid] = std::thread( illh::mlh_smooth,
+                        pix_per_thread*tid, npix, nTimesteps, 
+                        smoothing_radius,
+                        std::ref(significancemap), 
+                        std::ref(muon), std::ref(muoff),
+                        std::ref(Na), 
+                        std::ref(pmutex));
 
-            log_info("Finished iteration " << iteration << " of " << nIterations << "...");
-            log_info("llh : " << llhtemp);
+            //log_info("joining threads");
+            for (int tid = 0; tid < nthread; tid++) 
+                threads[tid].join();
+
+
+            //log_info("Finished iteration " << iteration << " of " << nIterations << "...");
+            cout << ": llh : " << llhtemp;
             double llhprev(0);
 
             if (llh.size()>0) 
             {
-                log_info("llh ratio : " << 2*(llhtemp-llh[0]));
+                cout << ", llh ratio : " << 2*(llhtemp-llh[0]);
                 llhprev = llh.back();
             }
-            if (llh.size()>1) 
-                log_info("llh ratio n, n-1: " << 2*(llhtemp-llh.back()));
+            if (llh.size()>1)  {
+                //log_info("llh ratio n, n-1: " << 2*(llhtemp-llh.back()));
+               cout << ", llh ratio n, n-1: " << 2*(llhtemp-llh.back()) << endl;
+            } else {
+               cout << endl;
+            }
 
             llh.push_back(llhtemp);
 
@@ -738,15 +709,21 @@ int main(int argc, char* argv[])
                 for (det_it = detectors.begin(); det_it != detectors.end(); det_it++) 
                 { 
                     DetectorPtr det = *det_it; 
-                    illh::save_iter(foldername, det->norm, *det->Emap, det->name, nsideOut, nTimesteps, iteration);
+                    illh::save_iter(foldername, det->norm, 
+                            *det->Emap, det->name, nsideOut, nTimesteps, iteration);
                 } 
 
                 // write relative intensity map I_a^(n)
                 stringstream namefits;
+                namefits << foldername;
                 if (maxllh) { 
-                    namefits << foldername << boost::format("/CR_%s_%d_%d_max.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps;
+                    namefits << boost::format(
+                        "/CR_%s_%d_%d_max.fits.gz"
+                            ) % detector_names_str.str() % nsideOut % nTimesteps;
                 } else { 
-                    namefits << foldername << boost::format("/CR_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
+                    namefits << boost::format(
+                        "/CR_%s_%d_%d_iteration%02d.fits.gz"
+                    ) % detector_names_str.str() % nsideOut % nTimesteps % iteration;
                 }
 
                 if (fs::exists(namefits.str()) ) { 
@@ -756,26 +733,35 @@ int main(int argc, char* argv[])
                 fitsOut.create(namefits.str().c_str()); 
                 fitsOut.add_comment("LLH reco Map");
                 fitsOut.set_key("COORDS" , std::string("C"), "Equatorial coordinate system");
-                fitsOut.set_key("TTYPE1", std::string("data"), "binned data counts");
-                fitsOut.set_key("TTYPE2", std::string("background"), "llh reconstructed background");
-                fitsOut.set_key("TTYPE3", std::string("relint"), "(alm-smoothed) relative intensity");
-                write_Healpix_map_to_fits(fitsOut, dataMap, bkgMap, diffCRmapNormed, MyDTYPE);
+                fitsOut.set_key("TTYPE1", std::string("relint"), "(alm-smoothed) relative intensity");
+                fitsOut.set_key("TTYPE2", std::string("sigma"), "statistical unsertainty");
+                fitsOut.set_key("TTYPE3", std::string("lima"), "Li-Ma significance (squared)");
+                write_Healpix_map_to_fits(fitsOut, diffCRmapNormed, errormap, significancemap, MyDTYPE);
                 fitsOut.close(); 
 
 
                 //write S_a^(n)
-                stringstream nameSIGfits;
-                nameSIGfits << foldername << boost::format("/variance_%s_%d_%d_iteration%02d.fits.gz") % detector_names_str.str() % nsideOut % nTimesteps % iteration;
+                stringstream nameSIGfits; 
+                nameSIGfits << foldername ;
+                if (maxllh) { 
+                    nameSIGfits << boost::format(
+                        "/RAW_%s_%d_%d_max.fits.gz"
+                    ) % detector_names_str.str() % nsideOut % nTimesteps;
+                } else { 
+                    nameSIGfits << boost::format(
+                        "/RAW_%s_%d_%d_iteration%02d.fits.gz"
+                    ) % detector_names_str.str() % nsideOut % nTimesteps % iteration;
+                }
                 if (fs::exists(nameSIGfits.str()) ) {
                         fs::remove(nameSIGfits.str() );
                 }
                 fitsOut.create(nameSIGfits.str().c_str()); 
                 fitsOut.add_comment(std::string("LLH stat Map"));
                 fitsOut.set_key("COORDS" , std::string("C"), "Equatorial coordinate system");
-                fitsOut.set_key("TTYPE1", std::string("sigma"), "statistical unsertainty");
-                fitsOut.set_key("TTYPE2", std::string("lima"), "Li-Ma significance (squared)");
+                fitsOut.set_key("TTYPE1", std::string("data"), "binned data counts");
+                fitsOut.set_key("TTYPE2", std::string("background"), "llh reconstructed background");
                 fitsOut.set_key("TTYPE3", std::string("mu"), "statistical count expectation");
-                write_Healpix_map_to_fits(fitsOut, errormap, significancemap, expectationMap, MyDTYPE);
+                write_Healpix_map_to_fits(fitsOut, dataMap, bkgMap, expectationMap, MyDTYPE);
                 fitsOut.close(); 
 
          

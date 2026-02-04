@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.0)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DBOOST_LOG_DYN_LINK")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DBOOST_LOG_DYN_LINK")
+# Request C++17
+#set(CMAKE_CXX_STANDARD 17)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)  # Enforce exactly C++17 (no fallback)
+#set(CMAKE_CXX_EXTENSIONS OFF)        # Use -std=c++17 instead of -std=gnu++17
 
 project(iter-lhreco-proj CXX C)
 
@@ -31,26 +35,60 @@ add_executable(multi-llh
             private/iter-lhreco/multi-llh.cc 
             private/iter-lhreco/pickle.cc
             private/iter-lhreco/illh-utils.cc
+            private/util/cnpy.cc
             )
 
 add_executable(rotation-test
             private/test/rotation.cc
             private/iter-lhreco/illh-utils.cc
+            private/util/cnpy.cc
             )
 
+add_executable(fits-test
+            private/util/fits_test.cc
+            )
+
+add_executable(combine-maps
+            private/util/combine_maps.cc
+            )
+#add_executable(create
+#            private/util/crear_fits.cc
+#            )
+
+#add_executable(read
+#            private/util/leer_fits.cc
+#            )
 
 
+#target_link_libraries(create
+#                ${CFITSIO_LIBRARIES} 
+#                ${HEALPIX-CXX_LIBRARIES} 
+#                ${Boost_LIBRARIES})
+
+#target_link_libraries(read
+#                ${CFITSIO_LIBRARIES} 
+#                ${HEALPIX-CXX_LIBRARIES} 
+#                ${Boost_LIBRARIES})
 
 target_link_libraries(multi-llh 
                 ${CFITSIO_LIBRARIES} 
                 ${HEALPIX-CXX_LIBRARIES} 
-                ${Boost_LIBRARIES})
+                ${Boost_LIBRARIES} -lz -pthread)
 
 target_link_libraries(rotation-test PRIVATE
                 ${CFITSIO_LIBRARIES} 
                 ${HEALPIX-CXX_LIBRARIES} 
+                ${Boost_LIBRARIES} -lz)
+
+target_link_libraries(fits-test 
+                ${CFITSIO_LIBRARIES} 
+                ${HEALPIX-CXX_LIBRARIES} 
                 ${Boost_LIBRARIES})
 
+target_link_libraries(combine-maps
+                ${CFITSIO_LIBRARIES} 
+                ${HEALPIX-CXX_LIBRARIES} 
+                ${Boost_LIBRARIES})
 
 enable_testing()
 

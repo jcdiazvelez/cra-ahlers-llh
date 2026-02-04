@@ -77,6 +77,46 @@ namespace po = boost::program_options;
 typedef Healpix_Map<double> SkyMap; 
 typedef boost::shared_ptr<SkyMap> SkyMapPtr; // Map shared pointer
 
+class Detector {
+  public:         
+    std::string name; 
+    unsigned int nside; 
+    double longitude; 
+    double latitude; 
+    double thetamax; 
+
+    double totsector;
+
+    std::string prefix;
+    std::string suffix;
+
+    bool multifits;
+    bool weights;
+
+    std::vector<SkyMapPtr> Nmap;
+
+    // initial exposure : A_i^(0)
+    SkyMapPtr Emap0;
+
+    // n^th exposure : A_i^(n)
+    SkyMapPtr Emap;
+
+
+    //// window function of FOV map : F_a
+    std::vector<bool> FOV;
+
+    // initial normalization : N_tau^(0)
+    std::vector<double> norm0;
+
+    // n^th normalization : N_tau^(n)
+    std::vector<double> norm;
+};
+
+
+typedef boost::shared_ptr<Detector> DetectorPtr; // Detector shared pointer
+
+
+
 
 namespace illh
 {
@@ -99,6 +139,18 @@ namespace illh
      */
     void isotropic(std::vector<SkyMapPtr>& Nmap, boost::mt19937 rng);
 #endif
+
+    /*
+     * loadMap - read local maps and generate vector of maps bined in 
+     * siderial time steps
+     */
+    void loadMap(
+        std::vector<SkyMapPtr>& Nmap,
+        unsigned nTimesteps, 
+        unsigned nsideIn, 
+        unsigned nsideOut, 
+        std::string filename, 
+        bool weights=false);
 
 
 
@@ -141,7 +193,7 @@ namespace illh
      * @return rotated pixel id
      */
     unsigned 
-    loc2eq_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap);
+    loc2eq_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, const SkyMap& CRmap);
 
     /*
      * Rotate from J2000 Equatorial reference frame to local detector coordinates 
@@ -155,7 +207,63 @@ namespace illh
      * @return rotated pixel id
      */
     unsigned 
-    eq2loc_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, SkyMap& CRmap);
+    eq2loc_idx(unsigned i, unsigned timeidx, double lat, double lon, unsigned nTimesteps, const SkyMap& CRmap);
+
+
+
+    void mlh_iteration(
+        unsigned int pixmin, 
+        unsigned int pixmax, 
+        unsigned int nTimesteps,
+        const std::vector<DetectorPtr> detectors,
+        SkyMap &diffCRmap,
+        SkyMap &CRmap,
+        SkyMap &bkgMap,
+		std::mutex &pmutex);
+
+    void mlh_normalization(
+        unsigned int timeidxMin, 
+        unsigned int timeidxMax, 
+        unsigned int nTimesteps, 
+        std::vector<DetectorPtr> detectors,
+        SkyMap &diffCRmap,
+        SkyMap &CRmap,
+		std::mutex &pmutex);
+
+    void mlh_significance(
+        unsigned int pixmin, 
+        unsigned int pixmax, 
+        unsigned int nTimesteps,
+        const std::vector<DetectorPtr> detectors,
+        SkyMap &diffCRmap,
+        SkyMap &CRmap,
+        SkyMap &errormap,
+        SkyMap &expectationMap,
+        SkyMap &muon,
+        SkyMap &muoff,
+        SkyMap &Na,
+        double &llhtemp,
+		std::mutex &pmutex);
+
+    void mlh_smooth(
+        unsigned int pixmin, 
+        unsigned int pixmax, 
+        unsigned int nTimesteps,
+        double smoothing_radius,
+        SkyMap &significancemap,
+        SkyMap &muon,
+        SkyMap &muoff,
+        SkyMap &Na,
+		std::mutex &pmutex);
+
+    void mlh_acceptance(
+        unsigned int pixmin, 
+        unsigned int pixmax, 
+        unsigned int nTimesteps,
+        std::vector<DetectorPtr> detectors,
+        const SkyMap &diffCRmap,
+        const SkyMap &CRmap,
+		std::mutex &pmutex);
 
 
 }
