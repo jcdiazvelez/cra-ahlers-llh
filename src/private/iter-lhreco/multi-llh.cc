@@ -35,7 +35,7 @@
 #include <math.h>
 #include <numeric>
 
-#include <boost/shared_ptr.hpp>
+//#include <boost/shared_ptr.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/program_options.hpp> 
 #include <boost/numeric/ublas/io.hpp>
@@ -89,9 +89,6 @@ using namespace std;
 using namespace boost::numeric::ublas;
 using namespace boost::random; 
 using boost::format;
-
-typedef Healpix_Map<double> SkyMap; 
-typedef boost::shared_ptr<SkyMap> SkyMapPtr; // Map shared pointer
 
 
 
@@ -222,7 +219,7 @@ int main(int argc, char* argv[])
          
         /// --help option 
         if ( vm.count("help")  ) { 
-            std::cout << "Basic Command Line Parameter App" 
+            std::cout << "Allowed options" 
                       << std::endl << desc << std::endl; 
             return 0; 
         } 

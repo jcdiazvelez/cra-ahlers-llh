@@ -35,40 +35,25 @@ add_executable(multi-llh
             private/iter-lhreco/multi-llh.cc 
             private/iter-lhreco/pickle.cc
             private/iter-lhreco/illh-utils.cc
-            private/util/cnpy.cc
+            private/util/multimap.cc
             )
 
 add_executable(rotation-test
             private/test/rotation.cc
             private/iter-lhreco/illh-utils.cc
-            private/util/cnpy.cc
+            private/util/multimap.cc
             )
 
-add_executable(fits-test
-            private/util/fits_test.cc
+
+add_executable(create-multimap
+            private/util/create_multimap.cc
+            private/util/multimap.cc
             )
 
-add_executable(combine-maps
-            private/util/combine_maps.cc
+add_executable(combine-multimaps
+            private/util/combine_multimaps.cc
+            private/util/multimap.cc
             )
-#add_executable(create
-#            private/util/crear_fits.cc
-#            )
-
-#add_executable(read
-#            private/util/leer_fits.cc
-#            )
-
-
-#target_link_libraries(create
-#                ${CFITSIO_LIBRARIES} 
-#                ${HEALPIX-CXX_LIBRARIES} 
-#                ${Boost_LIBRARIES})
-
-#target_link_libraries(read
-#                ${CFITSIO_LIBRARIES} 
-#                ${HEALPIX-CXX_LIBRARIES} 
-#                ${Boost_LIBRARIES})
 
 target_link_libraries(multi-llh 
                 ${CFITSIO_LIBRARIES} 
@@ -80,15 +65,17 @@ target_link_libraries(rotation-test PRIVATE
                 ${HEALPIX-CXX_LIBRARIES} 
                 ${Boost_LIBRARIES} -lz)
 
-target_link_libraries(fits-test 
+target_link_libraries(create-multimap
                 ${CFITSIO_LIBRARIES} 
                 ${HEALPIX-CXX_LIBRARIES} 
                 ${Boost_LIBRARIES})
 
-target_link_libraries(combine-maps
+target_link_libraries(combine-multimaps
                 ${CFITSIO_LIBRARIES} 
                 ${HEALPIX-CXX_LIBRARIES} 
                 ${Boost_LIBRARIES})
+
+
 
 enable_testing()
 

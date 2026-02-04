@@ -30,7 +30,7 @@
 #include <math.h>
 #include <numeric>
 
-#include <boost/shared_ptr.hpp>
+//#include <boost/shared_ptr.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/program_options.hpp> 
 #include <boost/numeric/ublas/io.hpp>
@@ -56,6 +56,7 @@
 #include <vector>
 
 #include <iter-lhreco-proj/pickle.h>
+#include <util/multimap.h>
 
 
 #ifdef HAWCNEST
@@ -73,9 +74,8 @@ namespace po = boost::program_options;
 
 
 
-
-typedef Healpix_Map<double> SkyMap; 
-typedef boost::shared_ptr<SkyMap> SkyMapPtr; // Map shared pointer
+//typedef Healpix_Map<double> SkyMap; 
+//typedef boost::shared_ptr<SkyMap> SkyMapPtr; // Map shared pointer
 
 class Detector {
   public:         

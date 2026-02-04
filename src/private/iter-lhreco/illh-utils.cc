@@ -21,6 +21,7 @@
 #include <fitsio.h>
 
 
+
 namespace fs = boost::filesystem; 
 using namespace std;
 using namespace boost::numeric::ublas;
@@ -118,68 +119,6 @@ void illh::isotropic(std::vector<SkyMapPtr>& Nmap, boost::mt19937 rng)
 #endif
 
 
-std::vector<SkyMapPtr>
-read_group_hdu(fitsfile *fptr, int hdu_index)
-{
-    int status = 0;
-    int hdutype = 0;
-
-    // Move to the requested HDU
-    fits_movabs_hdu(fptr, hdu_index, &hdutype, &status);
-    if (status) {
-        fits_report_error(stderr, status);
-        throw std::runtime_error("Could not move to HDU");
-    }
-
-    if (hdutype != IMAGE_HDU)
-        throw std::runtime_error("HDU is not an image");
-
-    int naxis = 0;
-    long naxes[2] = {0, 0};
-
-    fits_get_img_dim(fptr, &naxis, &status);
-    fits_get_img_size(fptr, 2, naxes, &status);
-
-    if (status) {
-        fits_report_error(stderr, status);
-        throw std::runtime_error("Could not read image dims");
-    }
-
-    if (naxis != 2)
-        throw std::runtime_error("Image is not 2-D (expected layers × pixels)");
-
-    long npix  = naxes[0];
-    long nmaps = naxes[1];
-
-    long total = npix * nmaps;
-
-    std::vector<double> buffer(total);
-
-    long fpixel[2] = {1,1};
-    fits_read_pix(fptr, TDOUBLE, fpixel, total,
-                  nullptr, buffer.data(), nullptr, &status);
-
-    if (status) {
-        fits_report_error(stderr, status);
-        throw std::runtime_error("Error reading image data");
-    }
-
-    // Deduce NSIDE from pixel count
-    Healpix_Map<double> tmpmap;
-    int nside = tmpmap.npix2nside(npix);
-
-    // Reconstruct maps
-    std::vector<SkyMapPtr> maps(nmaps);
-    for (int m = 0; m < nmaps; ++m) {
-        maps[m] = SkyMapPtr(new SkyMap);
-        maps[m]->SetNside(nside, RING);  // or NESTED
-        for (long p = 0; p < npix; ++p)
-           (*maps[m])[p] = buffer[m * npix + p];
-    }
-
-    return maps;
-}
-
 SkyMapPtr read_map_column(
     fitsfile *fptr,
     const std::string &colname)
@@ -240,8 +179,6 @@ void illh::loadMap(
     std::string filename,
     bool weights)
 {
-    fitshandle handle;
-
     int  hdu(2);
     if (weights) { 
         log_info("reading weighted maps");
@@ -257,13 +194,7 @@ void illh::loadMap(
     }
 
     // Move to FITS table HDU
-    //fits_movnam_hdu(fptr, 0, nullptr, 0, &status);
     log_info("reading file "<<filename << " status:"<<status);
-    //if (status) {
-    //    status = 0;
-    //    int hdutype;
-    //    fits_movabs_hdu(fptr, 2, &hdutype, &status);
-    //}
     std::vector<SkyMapPtr> inmaps = read_group_hdu(fptr, hdu);
 
     // Iterate over time bins and read local maps
@@ -292,6 +223,7 @@ void illh::loadMap(
             Nmap.push_back(locMapIn);
         }
     }
+    fits_close_file(fptr, &status);
 
 }
 
