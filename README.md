@@ -107,7 +107,7 @@ The code will terminate after convergence or after reaching the number of
 iterations (whichever comes first). 
 
 
-## ^1 MultiMaps:
+## $^1$ MultiMaps:
 Instead of dealing with N time-binned FITS files, cra-ahlers now supports a
 multi-layered image FITS format consisting of N layers. If this is an
 unweighted datasets, the multimap will have a single HDU called "MAPS".
