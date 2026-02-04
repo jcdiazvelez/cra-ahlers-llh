@@ -61,7 +61,15 @@ Options:
   --config arg (=config.json)      JSON config
 ````
 
-**Input files:**
+**Input files (new version):**
+The input should be specified in the JSON config file (see examples) and consists of data binned into local HEALPix maps for each sidereal time bin (24h/360 bins by default). The config file specifies an input `multimap` file per detector. The file is a multi-layered FITS file:
+````{verbatim}
+  "multimap": "CR_ICECUBE_LOCAL_NSIDE64.fits.gz",
+````
+For more information about multimaps see section below^1.
+
+
+**Input files (original version):**
 The input should be specified in the JSON config file (see examples) and consists of data binned into local HEALPix maps for each sidereal time bin (24h/360 bins by default). The config file specifies the prefix and suffix of each file. For eaxmple:
 
 ````{verbatim}
@@ -85,9 +93,10 @@ the [physics convention](https://en.wikipedia.org/wiki/Spherical_coordinate_syst
 
 
 **Output files:**
+***Note file formats have changed:***
 The output files will be named:
-* ```"CR_{detector(s)}__64_360_iteration{iter}.fits.gz"```: (data $d_i$, background $b_i$, $a_{\ell m}$-smoothed relative intensity)
-* ```"variance_{detector(s)}_{nside}_{nTbins}_iteration{iter}.fits.gz"```: (relative error $\sigma_i/\mu_i$, signed Li-Ma significance $\sigma_{i,\mathrm{Li-Ma}}$ , expectation $\mu$)
+* ```"CR_{detector(s)}__64_360_iteration{iter}.fits.gz"```: ($a_{\ell m}$-smoothed relative intensity, relative error $\sigma_i/\mu_i$, signed Li-Ma significance $\sigma_{i,\mathrm{Li-Ma}}$)
+* ```"RAW_{detector(s)}_{nside}_{nTbins}_iteration{iter}.fits.gz"```: (data, background, expectation $\mu$)
 * ```"llhratio_{detector(s)}_{nside}_{nTbins}_iteration{iter}.dat"```: ($\mathrm{llh}_n - \mathrm{llh}_0$)
 * ```"exposure_{detector}_{nside}_{nTbins}_iteration{iter}.fits.gz"```: ($A_i$: one file per dectector)
 * ```"norm_{detector}_{nside}_{nTbins}_iteration{iter}.dat"```: (<math>$N_\tau$</math>: one file per detector)
@@ -96,3 +105,42 @@ If ```--save-iter``` option is used, there will be one of each of the above file
 
 The code will terminate after convergence or after reaching the number of
 iterations (whichever comes first). 
+
+
+## ^1 MultiMaps:
+Instead of dealing with N time-binned FITS files, cra-ahlers now supports a
+multi-layered image FITS format consisting of N layers. If this is an
+unweighted datasets, the multimap will have a single HDU called "MAPS".
+Additional HDUs are included for weighted data: "WMAP" is a set of weight sums
+per pixel and "W2MAPS" is a set of squared weight sums corresponding to the statistical
+variance.
+
+### Multi-map utilities
+There are a couple of tools included to deal with multimaps:
+1. create_multimap - will combined a set of healpix map files into a single
+   multimap.
+2. combine_multimaps - will sum a set of multimaps (element wise) to combine
+   into a single file.
+
+
+
+
+## JSON Config:
+The following is an example configuration for HAWC using a weighted multimap:
+````{verbatim}
+{
+    "detectors": {
+        "HAWC": { 
+            "nside":64,
+            "latitude": 19.0,
+            "longitude": -97.0,
+            "thetamax": 43.0,
+            "weights": true,
+            "mutimap": "test_multimap2.fits.gz",
+        }
+    }
+}
+````
+Here you specified the nside as well as the location of the detector in
+latitude and longitud coordinates. The "weights" flag indicates that cra-llh
+should work usig the weighs rather than the counts.
