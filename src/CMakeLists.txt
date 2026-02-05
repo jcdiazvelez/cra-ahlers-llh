@@ -98,11 +98,18 @@ add_test(
   )
 
 
-
+if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python)
+       install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python
+         DESTINATION ${CMAKE_BINARY_DIR}/lib
+         PATTERN ".svn" EXCLUDE
+         PATTERN ".git" EXCLUDE
+         PATTERN "*.py"
+         PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+endif (IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python)
 
 if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
        install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts
-         DESTINATION ${CMAKE_BINARY_DIR}/scripts
+         DESTINATION ${CMAKE_BINARY_DIR}
          PATTERN ".svn" EXCLUDE
          PATTERN ".git" EXCLUDE
          PATTERN "*.py"
@@ -111,7 +118,7 @@ endif (IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
 
 if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples)
        install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples
-         DESTINATION ${CMAKE_BINARY_DIR}/examples
+         DESTINATION ${CMAKE_BINARY_DIR}
          PATTERN ".svn" EXCLUDE
          PATTERN ".git" EXCLUDE
          PATTERN "*.py"
